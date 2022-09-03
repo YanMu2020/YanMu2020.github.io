@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+  <head><meta charset="UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+
+
+<meta http-equiv="Cache-Control" content="no-transform" />
+<meta http-equiv="Cache-Control" content="no-siteapp" />
+
+<meta name="theme-color" content="#f8f5ec" />
+<meta name="msapplication-navbutton-color" content="#f8f5ec">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="#f8f5ec">
+
+<meta name="description" content="利用dll劫持实现免杀与维权"/><meta name="keywords" content="research,analyze" /><link rel="alternate" href="/atom.xml" title="Blog" type="application/atom+xml"><link rel="shortcut icon" type="image/x-icon" href="/favicon.ico?v=2.11.0" />
+<link rel="canonical" href="https://hosch3n.github.io/2021/06/29/利用dll劫持实现免杀与维权/"/>
+
+<link rel="stylesheet" type="text/css" href="/lib/fancybox/jquery.fancybox.css" />
+<link rel="stylesheet" type="text/css" href="/css/style.css?v=2.11.0" />
+
+<!-- Global site tag (gtag.js) - Google Analytics -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-180953397-1"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'UA-180953397-1');
+</script><script id="baidu_push">
+(function(){
+    var bp = document.createElement('script');
+    var curProtocol = window.location.protocol.split(':')[0];
+    if (curProtocol === 'https') {
+        bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+    }
+    else {
+        bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+    }
+    var s = document.getElementsByTagName("script")[0];
+    s.parentNode.insertBefore(bp, s);
+})();
+</script>
+<script>
+  window.config = {"leancloud":{"app_id":null,"app_key":null},"toc":true,"fancybox":true,"pjax":"","latex":false};
+</script>
+
+    <title>利用dll劫持实现免杀与维权 - Blog</title>
+  <meta name="generator" content="Hexo 5.4.0"></head>
+
+  <body><div id="mobile-navbar" class="mobile-navbar">
+  <div class="mobile-header-logo">
+    <a href="/." class="logo">Blog</a>
+  </div>
+  <div class="mobile-navbar-icon">
+    <span></span>
+    <span></span>
+    <span></span>
+  </div>
+</div>
+
+<nav id="mobile-menu" class="mobile-menu slideout-menu">
+  <ul class="mobile-menu-list"><a href="/">
+        <li class="mobile-menu-item">首页
+          </li>
+      </a><a href="/tags/">
+        <li class="mobile-menu-item">标签
+          </li>
+      </a><a href="/categories/">
+        <li class="mobile-menu-item">分类
+          </li>
+      </a><a href="/about/">
+        <li class="mobile-menu-item">关于
+          </li>
+      </a></ul>
+</nav>
+<div class="container" id="mobile-panel">
+      <header id="header" class="header"><div class="logo-wrapper">
+  <a href="/." class="logo">Blog</a>
+</div>
+
+<nav class="site-navbar"><ul id="menu" class="menu"><li class="menu-item">
+          <a class="menu-item-link" href="/">
+            首页
+            </a>
+        </li>
+      <li class="menu-item">
+          <a class="menu-item-link" href="/tags/">
+            标签
+            </a>
+        </li>
+      <li class="menu-item">
+          <a class="menu-item-link" href="/categories/">
+            分类
+            </a>
+        </li>
+      <li class="menu-item">
+          <a class="menu-item-link" href="/about/">
+            关于
+            </a>
+        </li>
+      </ul></nav>
+</header>
+
+      <main id="main" class="main">
+        <div class="content-wrapper">
+          <div id="content" class="content"><article class="post">
+    <header class="post-header">
+      <h1 class="post-title">利用dll劫持实现免杀与维权
+        </h1>
+
+      <div class="post-meta">
+        <span class="post-time">
+          2021-06-29
+        </span><span class="post-category">
+            <a href="/categories/%E7%BA%A2%E8%93%9D%E5%AF%B9%E6%8A%97/">红蓝对抗</a>
+            </span>
+        </div>
+    </header>
+
+    <div class="post-toc" id="post-toc">
+    <h2 class="post-toc-title">文章目录</h2>
+    <div class="post-toc-content">
+      <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#dll%E5%8A%AB%E6%8C%81%E6%A6%82%E5%BF%B5%E4%B8%8E%E7%B1%BB%E5%9E%8B"><span class="toc-text">dll劫持概念与类型</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%89%BEdll%E5%8A%AB%E6%8C%81%E7%9A%84%E4%B8%80%E7%A7%8D%E6%96%B9%E6%B3%95"><span class="toc-text">找dll劫持的一种方法</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8A%AB%E6%8C%81notepad-%E7%9A%84dll"><span class="toc-text">劫持notepad++的dll</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%8D%E6%9D%80%E4%B8%8E%E6%9D%83%E9%99%90%E7%BB%B4%E6%8C%81"><span class="toc-text">免杀与权限维持</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8F%82%E8%80%83%E9%93%BE%E6%8E%A5"><span class="toc-text">参考链接</span></a></li></ol>
+    </div>
+  </div><div class="post-content"><p>根据软件工程高内聚低耦合的思想，把程序要重复使用的代码封装成函数/类方法，将软件要重复使用的程序封装成链接库。库分为静态链接库和动态链接库，静态链接库顾名思义就是在程序链接阶段打包进文件中，而动态链接库则是在程序运行时再导入调用。动态链接库有着加载时复用节省内存、补丁更新时可符合开闭原则等优点，也有容易发生版本冲突、容易被劫持等缺点。Windows平台下的动态链接库常为dll文件，linux则常为so文件。</p>
+<h2 id="dll劫持概念与类型"><a href="#dll劫持概念与类型" class="headerlink" title="dll劫持概念与类型"></a>dll劫持概念与类型</h2><p>dll劫持就是要想方设法地调用到恶意dll。为了便于理解，需要了解一下目前Windows默认的dll调用顺序：</p>
+<p><img src="/img/lydllhj_a.png"></p>
+<ul>
+<li><em><code>Known DLL</code></em> 特指 定义在<code>HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\KnownDLLs</code>中且只能在System目录中加载的dll们</li>
+</ul>
+<p>由此可以引出几种dll劫持的形式：</p>
+<ol>
+<li><p>直接将恶意dll暴力替换掉正常dll，软件正常功能会受影响</p>
+</li>
+<li><p>将恶意dll作为中间人，转发调用正常dll的导出函数，同时加入额外的恶意操作</p>
+</li>
+<li><p>利用加载顺序的机制，让恶意dll先于正常dll加载</p>
+</li>
+<li><p>利用软件本身缺失的dll加载恶意dll</p>
+</li>
+<li><p>更改环境变量或是.exe.manifest/.exe.local文件实现dll重定向</p>
+</li>
+</ol>
+<ul>
+<li>如果利用低权限劫持的dll文件，会被高权限程序加载运行，就是一个权限提升漏洞</li>
+</ul>
+<h2 id="找dll劫持的一种方法"><a href="#找dll劫持的一种方法" class="headerlink" title="找dll劫持的一种方法"></a>找dll劫持的一种方法</h2><p>通过 <a target="_blank" rel="noopener" href="https://docs.microsoft.com/en-us/sysinternals/downloads/procmon">Process Monitor</a> 监控dll调用是一种最基础的寻找dll劫持的方式，在filter中添加<code>Path ends with .dll</code>和<code>Result is NAME NOT FOUND</code>规则，并且可以加上<code>Process Name contains xxx</code>来针对性的找xxx的dll劫持。</p>
+<p><img src="/img/lydllhj_b.png"></p>
+<p>编写一个加载dll的demo，让它加载一个不存在的dll，可以监控到加载的路径顺序（请无视中文路径乱码Orz）。如果这是一个真实的常用软件，则可以用来实现上文中的第4种劫持。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;stdio.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;Windows.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">(<span class="keyword">int</span> argc, <span class="keyword">char</span> *argv[])</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    HMODULE hModule = LoadLibrary(argv[<span class="number">1</span>]);</span><br><span class="line">    <span class="keyword">if</span> (hModule) &#123;</span><br><span class="line">        wprintf(<span class="string">L&quot;Load Success\n&quot;</span>);</span><br><span class="line">        FreeLibrary(hModule);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">else</span> &#123;</span><br><span class="line">        wprintf(<span class="string">L&quot;Load Error: %d\n&quot;</span>, GetLastError());</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><img src="/img/lydllhj_c.png"></p>
+<h2 id="劫持notepad-的dll"><a href="#劫持notepad-的dll" class="headerlink" title="劫持notepad++的dll"></a>劫持notepad++的dll</h2><p>下面以notepad++为例，实现上文中的第2种劫持，这类dll转发利用<code>#pragma comment(linker, &quot;/EXPORT:xxx,@y)</code>可以很方便地实现。</p>
+<p>出于免杀上线以及权限维持的考虑，我们物色一下尽量符合这些特点的dll：</p>
+<ol>
+<li><p>后台进程稳定不挂，避免主进程退出导致dll一起挂了</p>
+</li>
+<li><p>容易触发上线，行为隐蔽不易被杀软和人工发现</p>
+</li>
+</ol>
+<p>然后我看到了会被 <code>updater/GUP.exe</code> 拉起的 <code>libcurl.dll</code>，以及安装版中存在且可方便地附加到绿色版中的 <code>NppShell_06.dll</code>。前者是一个软件更新组件，后者是Windows右键中<code>Edit with Notepad++</code>的组件，会随explorer.exe加载且不会重复执行，只要在文件上按右键就会触发（并不需要点击它，看到时就已经加载了dll）：</p>
+<p><img src="/img/lydllhj_d.png"></p>
+<p>由于 <code>GUP.exe</code> 容易退出，需要让它加到常驻服务里去，我们优先看看 <code>NppShell_06.dll</code>。这是一个会随安装包的<code>Context Menu Enty</code>选项一起安装到软件目录的dll，通过 Process Monitor 监控并筛选注册表，发现有如下变动：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">[HKEY_CLASSES_ROOT\CLSID\&#123;B298D29A-A6ED-11DE-BA8C-A68E55D89593&#125;]</span><br><span class="line">@&#x3D;&quot;ANotepad++64&quot;</span><br><span class="line"></span><br><span class="line">[HKEY_CLASSES_ROOT\CLSID\&#123;B298D29A-A6ED-11DE-BA8C-A68E55D89593&#125;\InprocServer32]</span><br><span class="line">@&#x3D;&quot;C:\\Program Files\\Notepad++\\NppShell_06.dll&quot;</span><br><span class="line">&quot;ThreadingModel&quot;&#x3D;&quot;Apartment&quot;</span><br><span class="line"></span><br><span class="line">[HKEY_CLASSES_ROOT\CLSID\&#123;B298D29A-A6ED-11DE-BA8C-A68E55D89593&#125;\Settings]</span><br><span class="line">&quot;Title&quot;&#x3D;&quot;Edit with &amp;Notepad++&quot;</span><br><span class="line">&quot;Path&quot;&#x3D;&quot;C:\\Program Files\\Notepad++\\notepad++.exe&quot;</span><br><span class="line">&quot;Custom&quot;&#x3D;&quot;&quot;</span><br><span class="line">&quot;ShowIcon&quot;&#x3D;dword:00000001</span><br><span class="line">&quot;Dynamic&quot;&#x3D;dword:00000001</span><br><span class="line">&quot;Maxtext&quot;&#x3D;dword:00000019</span><br><span class="line"></span><br><span class="line">[HKEY_CLASSES_ROOT\*\shellex\ContextMenuHandlers\ANotepad++64]</span><br><span class="line">@&#x3D;&quot;&#123;B298D29A-A6ED-11DE-BA8C-A68E55D89593&#125;&quot;</span><br></pre></td></tr></table></figure>
+
+<p>也就是说只需要将安装文件中的 <code>NppShell_06.dll</code> 拷贝到绿色版文件中，并将上述变动导入注册表就可以手动实现添加右键打开的功能，不过该操作需要管理员权限。</p>
+<ul>
+<li><code>regedit /s nppi.reg</code></li>
+</ul>
+<p>构造了还不错的触发条件后，接下来将原dll更名为 <code>NppShell_05.dll</code>、找出导出函数，在我们的恶意dll中按顺序转发原函数调用并附加恶意操作（比如加载shellcode），目前已经有很多成熟的工具可以帮助找出这些导出函数们：</p>
+<p><img src="/img/lydllhj_e.png"></p>
+<ul>
+<li>开始调试时为了避免干扰因素，通常不会直接上shellcode而是用MessageBox弹窗做试验</li>
+</ul>
+<h2 id="免杀与权限维持"><a href="#免杀与权限维持" class="headerlink" title="免杀与权限维持"></a>免杀与权限维持</h2><p>将恶意dll的shellcode简单处理一下后再伪造一个原dll的签名，此时就是正常签名程序-&gt;伪造签名的dll-&gt;正常签名的dll，测试了几款主流杀软和defender，可以挺人畜无害地上线CS：</p>
+<p><img src="/img/lydllhj_f.png"></p>
+<p><img src="/img/lydllhj_g.png"></p>
+<p><img src="/img/lydllhj_h.png"></p>
+<p>对于权限维持而言，恶意dll会在第一次导入注册表操作时加载，之后可由任意文件上右键的行为被explore进程拉起，不会在任务管理器中看到恶意进程，也没有类似于开机自启这种敏感行为。而且有意思的是管理员会因为右键用杀软扫描文件的行为而上线2333</p>
+<hr>
+<p>这是Web狗学习Windows的一点小测试记录，希望师傅们能分享更多好玩的tricks鸭～</p>
+<h2 id="参考链接"><a href="#参考链接" class="headerlink" title="参考链接"></a>参考链接</h2><p><a target="_blank" rel="noopener" href="https://docs.microsoft.com/en-us/windows/win32/dlls/dynamic-link-library-search-order#standard-search-order-for-desktop-applications">Dynamic-Link Library Search Order</a></p>
+<p><a target="_blank" rel="noopener" href="https://itm4n.github.io/windows-dll-hijacking-clarified/">Windows DLL Hijacking (Hopefully) Clarified</a></p>
+<p><a target="_blank" rel="noopener" href="https://www.wietzebeukema.nl/blog/hijacking-dlls-in-windows">Hijacking DLLs in Windows</a></p>
+<p><a target="_blank" rel="noopener" href="https://www.netspi.com/blog/technical/adversary-simulation/adaptive-dll-hijacking/">Adaptive DLL Hijacking</a></p>
+<p><a target="_blank" rel="noopener" href="https://printempw.github.io/add-notepad-plus-plus-to-context-menu/">添加 Notepad++ 至右键菜单的几种方法</a></p>
+<p><a target="_blank" rel="noopener" href="https://www.anquanke.com/post/id/232891">DLL劫持之权限维持篇（二）</a></p>
+<p><a target="_blank" rel="noopener" href="https://uknowsec.cn/posts/notes/shellcode%E5%8A%A0%E8%BD%BD%E6%80%BB%E7%BB%93.html">shellcode加载总结</a></p>
+
+      </div>
+      
+      <footer class="post-footer">
+        <div class="post-tags">
+            <a href="/tags/dll/">dll</a>
+            <a href="/tags/hijack/">hijack</a>
+            </div>
+        
+        <nav class="post-nav"><a class="prev" href="/2021/07/06/VMware-vCenter%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90%EF%BC%88%E4%B8%80%EF%BC%89/">
+        <i class="iconfont icon-left"></i>
+        <span class="prev-text nav-default">VMware vCenter漏洞分析（一）</span>
+        <span class="prev-text nav-mobile">上一篇</span>
+      </a>
+    <a class="next" href="/2021/05/29/CS%E7%A0%B4%E8%A7%A3%E4%B8%8E%E4%BA%8C%E6%AC%A1%E5%BC%80%E5%8F%91/">
+        <span class="next-text nav-default">CS破解与二次开发</span>
+        <span class="prev-text nav-mobile">下一篇</span>
+        <i class="iconfont icon-right"></i>
+      </a>
+    </nav></footer>
+    </article></div><div class="comments" id="comments"></div></div>
+      </main>
+
+      <footer id="footer" class="footer"><div class="social-links"><a href="mailto:hosch3n@protonmail.com" class="iconfont icon-email" title="email"></a>
+        <a target="_blank" rel="noopener" href="https://github.com/hosch3n" class="iconfont icon-github" title="github"></a>
+        <a href="/atom.xml" class="iconfont icon-rss" title="rss"></a>
+    </div><div class="copyright">
+  <span class="power-by">
+    由 <a class="hexo-link" target="_blank" rel="noopener" href="https://hexo.io/">Hexo</a> 强力驱动
+  </span>
+  <span class="division">|</span>
+  <span class="theme-info">
+    主题 - 
+    <a class="theme-link" target="_blank" rel="noopener" href="https://github.com/ahonn/hexo-theme-even">Even</a>
+  </span>
+
+  <span class="copyright-year">&copy;2021 - 2022<span class="heart">
+      <i class="iconfont icon-heart"></i>
+    </span>
+    <span class="author">hosch3n</span>
+  </span>
+</div>
+</footer>
+
+      <div class="back-to-top" id="back-to-top">
+        <i class="iconfont icon-up"></i>
+      </div>
+    </div><script type="text/javascript" src="/lib/jquery/jquery.min.js"></script>
+  <script type="text/javascript" src="/lib/slideout/slideout.js"></script>
+  <script type="text/javascript" src="/lib/fancybox/jquery.fancybox.pack.js"></script>
+  <script type="text/javascript" src="/js/src/even.js?v=2.11.0"></script>
+</body>
+</html>

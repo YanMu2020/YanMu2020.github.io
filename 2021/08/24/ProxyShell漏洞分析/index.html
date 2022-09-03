@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+  <head><meta charset="UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+
+
+<meta http-equiv="Cache-Control" content="no-transform" />
+<meta http-equiv="Cache-Control" content="no-siteapp" />
+
+<meta name="theme-color" content="#f8f5ec" />
+<meta name="msapplication-navbutton-color" content="#f8f5ec">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="#f8f5ec">
+
+<meta name="description" content="ProxyShell漏洞分析"/><meta name="keywords" content="research,analyze" /><link rel="alternate" href="/atom.xml" title="Blog" type="application/atom+xml"><link rel="shortcut icon" type="image/x-icon" href="/favicon.ico?v=2.11.0" />
+<link rel="canonical" href="https://hosch3n.github.io/2021/08/24/ProxyShell漏洞分析/"/>
+
+<link rel="stylesheet" type="text/css" href="/lib/fancybox/jquery.fancybox.css" />
+<link rel="stylesheet" type="text/css" href="/css/style.css?v=2.11.0" />
+
+<!-- Global site tag (gtag.js) - Google Analytics -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-180953397-1"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'UA-180953397-1');
+</script><script id="baidu_push">
+(function(){
+    var bp = document.createElement('script');
+    var curProtocol = window.location.protocol.split(':')[0];
+    if (curProtocol === 'https') {
+        bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+    }
+    else {
+        bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+    }
+    var s = document.getElementsByTagName("script")[0];
+    s.parentNode.insertBefore(bp, s);
+})();
+</script>
+<script>
+  window.config = {"leancloud":{"app_id":null,"app_key":null},"toc":true,"fancybox":true,"pjax":"","latex":false};
+</script>
+
+    <title>ProxyShell漏洞分析 - Blog</title>
+  <meta name="generator" content="Hexo 5.4.0"></head>
+
+  <body><div id="mobile-navbar" class="mobile-navbar">
+  <div class="mobile-header-logo">
+    <a href="/." class="logo">Blog</a>
+  </div>
+  <div class="mobile-navbar-icon">
+    <span></span>
+    <span></span>
+    <span></span>
+  </div>
+</div>
+
+<nav id="mobile-menu" class="mobile-menu slideout-menu">
+  <ul class="mobile-menu-list"><a href="/">
+        <li class="mobile-menu-item">首页
+          </li>
+      </a><a href="/tags/">
+        <li class="mobile-menu-item">标签
+          </li>
+      </a><a href="/categories/">
+        <li class="mobile-menu-item">分类
+          </li>
+      </a><a href="/about/">
+        <li class="mobile-menu-item">关于
+          </li>
+      </a></ul>
+</nav>
+<div class="container" id="mobile-panel">
+      <header id="header" class="header"><div class="logo-wrapper">
+  <a href="/." class="logo">Blog</a>
+</div>
+
+<nav class="site-navbar"><ul id="menu" class="menu"><li class="menu-item">
+          <a class="menu-item-link" href="/">
+            首页
+            </a>
+        </li>
+      <li class="menu-item">
+          <a class="menu-item-link" href="/tags/">
+            标签
+            </a>
+        </li>
+      <li class="menu-item">
+          <a class="menu-item-link" href="/categories/">
+            分类
+            </a>
+        </li>
+      <li class="menu-item">
+          <a class="menu-item-link" href="/about/">
+            关于
+            </a>
+        </li>
+      </ul></nav>
+</header>
+
+      <main id="main" class="main">
+        <div class="content-wrapper">
+          <div id="content" class="content"><article class="post">
+    <header class="post-header">
+      <h1 class="post-title">ProxyShell漏洞分析
+        </h1>
+
+      <div class="post-meta">
+        <span class="post-time">
+          2021-08-24
+        </span><span class="post-category">
+            <a href="/categories/Web%E5%AE%89%E5%85%A8/">Web安全</a>
+            </span>
+        </div>
+    </header>
+
+    <div class="post-toc" id="post-toc">
+    <h2 class="post-toc-title">文章目录</h2>
+    <div class="post-toc-content">
+      <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%BD%B1%E5%93%8D%E7%89%88%E6%9C%AC"><span class="toc-text">影响版本</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#CVE-2021-34473-amp-CVE-2021-34523"><span class="toc-text">CVE-2021-34473 &amp; CVE-2021-34523</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#CVE-2021-31207"><span class="toc-text">CVE-2021-31207</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90"><span class="toc-text">漏洞分析</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#CVE-2021-34473"><span class="toc-text">CVE-2021-34473</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#CVE-2021-34523"><span class="toc-text">CVE-2021-34523</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#CVE-2021-31207-1"><span class="toc-text">CVE-2021-31207</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8F%82%E8%80%83%E9%93%BE%E6%8E%A5"><span class="toc-text">参考链接</span></a></li></ol>
+    </div>
+  </div><div class="post-content"><h2 id="影响版本"><a href="#影响版本" class="headerlink" title="影响版本"></a>影响版本</h2><h2 id="CVE-2021-34473-amp-CVE-2021-34523"><a href="#CVE-2021-34473-amp-CVE-2021-34523" class="headerlink" title="CVE-2021-34473 &amp; CVE-2021-34523"></a>CVE-2021-34473 &amp; CVE-2021-34523</h2><ul>
+<li>Exchange Server 2013 &lt; Apr21SU</li>
+<li>Exchange Server 2016 &lt; Apr21SU &lt; CU21</li>
+<li>Exchange Server 2019 &lt; Apr21SU &lt; CU10</li>
+</ul>
+<h2 id="CVE-2021-31207"><a href="#CVE-2021-31207" class="headerlink" title="CVE-2021-31207"></a>CVE-2021-31207</h2><ul>
+<li>Exchange Server 2013 &lt; May21SU</li>
+<li>Exchange Server 2016 &lt; May21SU &lt; CU21</li>
+<li>Exchange Server 2019 &lt; May21SU &lt; CU10</li>
+</ul>
+<h2 id="漏洞分析"><a href="#漏洞分析" class="headerlink" title="漏洞分析"></a>漏洞分析</h2><h3 id="CVE-2021-34473"><a href="#CVE-2021-34473" class="headerlink" title="CVE-2021-34473"></a>CVE-2021-34473</h3><blockquote>
+<p>The specific flaw exists within the Autodiscover service. The issue results from the lack of proper validation of URI prior to accessing resources. An attacker can leverage this in conjunction with other vulnerabilities to execute arbitrary code in the context of SYSTEM.</p>
+</blockquote>
+<p>ZDI通告说Autodiscover服务没有验证好URL，结合其它漏洞可以SYSTEM身份任意代码执行。看到在CAS中也继承自<code>ProxyRequestHandler</code>类，且会由<code>SelectHandlerForUnauthenticatedRequest</code>方法调用：</p>
+<p><img src="/img/proxyshell_a.png"></p>
+<p><img src="/img/proxyshell_b.png"></p>
+<p>与CVE-2021-26855很相似，猜测CAS的<code>/autodiscover</code>接口存在SSRF。之前ProxyLogon漏洞分析中，我们梳理了几个关键的方法调用栈，知道可以利用<code>EcpProxyRequestHandler</code>类<code>GetClientUrlForProxy</code>方法调用的<code>UriBuilder</code>类特性造成SSRF。而<code>AutodiscoverProxyRequestHandler</code>类的父类<code>EwsAutodiscoverProxyRequestHandler</code>也实现了<code>GetClientUrlForProxy</code>方法：</p>
+<p><img src="/img/proxyshell_c.png"></p>
+<p><code>RemoveExplicitLogonFromUrlAbsoluteUri</code>方法用于剔除<code>absoluteUri</code>中的<code>this.explicitLogonAddress</code>：</p>
+<p><img src="/img/proxyshell_d.png"></p>
+<p>所以也许能够构造一个满足所有前置判断的URL，让它在经过剔除后变成其它敏感路径？首先跟进<code>this.isExplicitLogonRequest</code>属性，看到满足if的条件时会置为true，并将<code>text</code>变量赋值给会被剔除的<code>this.explicitLogonAddress</code>属性：</p>
+<p><img src="/img/proxyshell_e.png"></p>
+<figure class="highlight cs"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">bool</span> <span class="title">TryGetNormalizedExplicitLogonAddress</span>(<span class="params"><span class="keyword">string</span> explicitLogonAddressout <span class="keyword">string</span> normalizedAddress</span>)</span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	normalizedAddress = <span class="literal">null</span>;</span><br><span class="line">	<span class="keyword">if</span> (<span class="keyword">string</span>.IsNullOrEmpty(explicitLogonAddress))</span><br><span class="line">	&#123;</span><br><span class="line">		<span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">	&#125;</span><br><span class="line">	normalizedAddress = explicitLogonAddress.Replace(<span class="string">&quot;...&quot;</span>, <span class="string">&quot;.@&quot;</span>).Replace(<span class="string">&quot;..&quot;</span>, <span class="string">&quot;@&quot;</span>);</span><br><span class="line">	<span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>TryGetNormalizedExplicitLogonAddress</code>和<code>IsValidSmtpAddress</code>传入合法邮箱格式就能满足。经过<code>RequestPathParser.IsAutodiscoverV2PreviewRequest</code>的判断后，<code>text</code>变量就会从GPCS（GET|POST|Cookie|Server）中取<code>Email</code>参数的值，继续跟进：</p>
+<p><img src="/img/proxyshell_f.png"></p>
+<p>存在指定路径<code>/autodiscover.json</code>就可以满足判断，至此想要被剔除的部分就可控了。之后的流程就跟ProxyLogon类似，会由CAS向后端发起经过Kerberos认证的请求：</p>
+<p><img src="/img/proxyshell_g.png"></p>
+<h3 id="CVE-2021-34523"><a href="#CVE-2021-34523" class="headerlink" title="CVE-2021-34523"></a>CVE-2021-34523</h3><p>在ProxyLogon漏洞分析中，我们已经知道<code>ShouldCopyHeaderToServerRequest</code>方法会过滤一些自定义请求头，其中就包括用于校验用户身份的<code>X-CommonAccessToken</code>。</p>
+<p>在调用<code>BackendRehydrationModule</code>校验身份前，会先由<code>RemotePowershellBackendCmdletProxyModule</code>的<code>OnAuthenticateRequest</code>方法对<code>commonAccessToken</code>进行判断和处理：</p>
+<p><img src="/img/proxyshell_h.png"></p>
+<p>当不存在<code>X-CommonAccessToken</code>头时会进一步调用<code>CommonAccessTokenFromUrl</code>方法（屏幕不够大没截到，就是上图第二个断点那里）：</p>
+<p><img src="/img/proxyshell_i.png"></p>
+<p>可见<code>X-CommonAccessToken</code>头可由<code>X-Rps-CAT</code>参数替代且不在过滤范围内，当能获取/构造所需的数据时，就可以管理员身份访问受限的后端接口。史辛泽师傅分析了<code>Microsoft.Exchange.Net</code>中<code>Authorization</code>与<code>WindowsAccessToken</code>的相关代码，由Python实现了通过用户名与SID生成Token的函数（详见参考链接）。</p>
+<p><img src="/img/proxyshell_j.png"></p>
+<p>将ProxyLogon利用流程123步套用在CVE-2021-34473上，获取SID后本地生成<code>CommonAccessToken</code>，实现以管理员身份访问后端接口：</p>
+<p><img src="/img/proxyshell_k.png"></p>
+<h3 id="CVE-2021-31207-1"><a href="#CVE-2021-31207-1" class="headerlink" title="CVE-2021-31207"></a>CVE-2021-31207</h3><p><code>Microsoft.Exchange.Management.Migration</code>中有一处补丁变动：</p>
+<p><img src="/img/proxyshell_l.png"></p>
+<figure class="highlight cs"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">readonly</span> <span class="keyword">string</span>[] AllowedPSTFileExtensions = <span class="keyword">new</span> <span class="keyword">string</span>[]</span><br><span class="line">&#123;</span><br><span class="line">	<span class="string">&quot;.pst&quot;</span>,</span><br><span class="line">	<span class="string">&quot;.eml&quot;</span>,</span><br><span class="line">	<span class="string">&quot;.ost&quot;</span></span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>看起来是限制了从邮箱导出时的文件后缀名，搜索官方文档基本确定对应<a target="_blank" rel="noopener" href="https://docs.microsoft.com/en-us/powershell/module/exchange/new-mailboxexportrequest?view=exchange-ps"><code>New-MailboxExportRequest</code></a>这个cmdlet，用于将邮箱内容导出为<code>pst</code>文件。</p>
+<p><a target="_blank" rel="noopener" href="https://docs.microsoft.com/en-us/openspecs/office_file_formats/ms-pst/5faf4800-645d-49d1-9457-2ac40eb467bd">PST编码算法和转换表</a>是一套字节置换规则。转换表看似是一张表，其实是以每256个字节为分隔的三张表。导出邮件进行编码时，由相应字节（0x00-0xff）对应到数组表中偏移（0-255），将字节替换为表中偏移对应的值。</p>
+<p>想要导出时内容为“原始数据”而非PST编码时，可以根据第一张表（<code>mpbbCrypt</code>）的字节置换规则，查询“原始数据”的字节在表中对应值的偏移，逆推得到导出前要构造的邮件内容。但微软本身也要解码PST，所以不用这么麻烦去逆推，因为第三张表（<code>mpbbCrypt + 512</code>）其实就是这个逆推的转换表。只不过我们此时变成了用解码表规则编码，这样Exchange在导出邮件对数据进行编码时，实际就变成了PST解码（妙啊，有点异或那味）</p>
+<p>对于写WebShell而言，接下来可以通过SMTP发送邮件或是EWS接口操作某个账户邮箱，将构造好的Payload作为附件引入目标邮箱。随后基于WinRM协议与<code>/powershell</code>接口通信，赋予<code>administrator</code>用户邮箱导出权限，并利用UNC路径将目标邮件导出至Web服务目录：</p>
+<figure class="highlight ps"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">New-ManagementRoleAssignment</span> <span class="literal">-Role</span> <span class="string">&quot;Mailbox Import Export&quot;</span> <span class="literal">-User</span> <span class="string">&quot;administrator&quot;</span></span><br><span class="line"></span><br><span class="line"><span class="built_in">New-MailboxExportRequest</span> <span class="literal">-Mailbox</span> SomeUser <span class="literal">-IncludeFolders</span> <span class="string">&quot;#Inbox#&quot;</span> <span class="literal">-FilePath</span> \\<span class="number">127.0</span>.<span class="number">0.1</span>\c<span class="variable">$</span>\somepath\api.aspx</span><br></pre></td></tr></table></figure>
+
+<p>除了写WebShell，也可以考虑利用其它写文件GetShell的方式，毕竟现在不像27065一样有长度和格式限制。也不要局限于写文件上，<a target="_blank" rel="noopener" href="https://docs.microsoft.com/en-us/powershell/module/exchange/?view=exchange-ps">ExchangePowerShell</a>还有相当多的cmdlet可用:D</p>
+<h2 id="参考链接"><a href="#参考链接" class="headerlink" title="参考链接"></a>参考链接</h2><p><a target="_blank" rel="noopener" href="https://www.zerodayinitiative.com/advisories/ZDI-21-821/">(Pwn2Own) Microsoft Exchange Server Autodiscover Server Side Request Forgery Authentication Bypass Vulnerability</a></p>
+<p><a target="_blank" rel="noopener" href="https://peterjson.medium.com/reproducing-the-proxyshell-pwn2own-exploit-49743a4ea9a1">Reproducing The ProxyShell Pwn2Own Exploit</a></p>
+<p><a target="_blank" rel="noopener" href="https://blog.riskivy.com/exchange-proxyshell%e6%bc%8f%e6%b4%9e%e5%a4%8d%e7%8e%b0%e5%8f%8a%e5%88%86%e6%9e%90/">Exchange ProxyShell漏洞复现及分析</a></p>
+
+      </div>
+      
+      <footer class="post-footer">
+        <div class="post-tags">
+            <a href="/tags/Exchange/">Exchange</a>
+            <a href="/tags/SSRF/">SSRF</a>
+            <a href="/tags/CVE-2021-34473/">CVE-2021-34473</a>
+            <a href="/tags/CVE-2021-34523/">CVE-2021-34523</a>
+            <a href="/tags/CVE-2021-31207/">CVE-2021-31207</a>
+            </div>
+        
+        <nav class="post-nav"><a class="prev" href="/2021/10/08/VMware-vCenter%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90%EF%BC%88%E4%BA%8C%EF%BC%89/">
+        <i class="iconfont icon-left"></i>
+        <span class="prev-text nav-default">VMware vCenter漏洞分析（二）</span>
+        <span class="prev-text nav-mobile">上一篇</span>
+      </a>
+    <a class="next" href="/2021/08/23/ProxyOracle%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90/">
+        <span class="next-text nav-default">ProxyOracle漏洞分析</span>
+        <span class="prev-text nav-mobile">下一篇</span>
+        <i class="iconfont icon-right"></i>
+      </a>
+    </nav></footer>
+    </article></div><div class="comments" id="comments"></div></div>
+      </main>
+
+      <footer id="footer" class="footer"><div class="social-links"><a href="mailto:hosch3n@protonmail.com" class="iconfont icon-email" title="email"></a>
+        <a target="_blank" rel="noopener" href="https://github.com/hosch3n" class="iconfont icon-github" title="github"></a>
+        <a href="/atom.xml" class="iconfont icon-rss" title="rss"></a>
+    </div><div class="copyright">
+  <span class="power-by">
+    由 <a class="hexo-link" target="_blank" rel="noopener" href="https://hexo.io/">Hexo</a> 强力驱动
+  </span>
+  <span class="division">|</span>
+  <span class="theme-info">
+    主题 - 
+    <a class="theme-link" target="_blank" rel="noopener" href="https://github.com/ahonn/hexo-theme-even">Even</a>
+  </span>
+
+  <span class="copyright-year">&copy;2021 - 2022<span class="heart">
+      <i class="iconfont icon-heart"></i>
+    </span>
+    <span class="author">hosch3n</span>
+  </span>
+</div>
+</footer>
+
+      <div class="back-to-top" id="back-to-top">
+        <i class="iconfont icon-up"></i>
+      </div>
+    </div><script type="text/javascript" src="/lib/jquery/jquery.min.js"></script>
+  <script type="text/javascript" src="/lib/slideout/slideout.js"></script>
+  <script type="text/javascript" src="/lib/fancybox/jquery.fancybox.pack.js"></script>
+  <script type="text/javascript" src="/js/src/even.js?v=2.11.0"></script>
+</body>
+</html>

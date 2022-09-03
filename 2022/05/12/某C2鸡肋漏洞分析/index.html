@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+  <head><meta charset="UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+
+
+<meta http-equiv="Cache-Control" content="no-transform" />
+<meta http-equiv="Cache-Control" content="no-siteapp" />
+
+<meta name="theme-color" content="#f8f5ec" />
+<meta name="msapplication-navbutton-color" content="#f8f5ec">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="#f8f5ec">
+
+<meta name="description" content="某C2鸡肋漏洞分析"/><meta name="keywords" content="research,analyze" /><link rel="alternate" href="/atom.xml" title="Blog" type="application/atom+xml"><link rel="shortcut icon" type="image/x-icon" href="/favicon.ico?v=2.11.0" />
+<link rel="canonical" href="https://hosch3n.github.io/2022/05/12/某C2鸡肋漏洞分析/"/>
+
+<link rel="stylesheet" type="text/css" href="/lib/fancybox/jquery.fancybox.css" />
+<link rel="stylesheet" type="text/css" href="/css/style.css?v=2.11.0" />
+
+<!-- Global site tag (gtag.js) - Google Analytics -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-180953397-1"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'UA-180953397-1');
+</script><script id="baidu_push">
+(function(){
+    var bp = document.createElement('script');
+    var curProtocol = window.location.protocol.split(':')[0];
+    if (curProtocol === 'https') {
+        bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+    }
+    else {
+        bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+    }
+    var s = document.getElementsByTagName("script")[0];
+    s.parentNode.insertBefore(bp, s);
+})();
+</script>
+<script>
+  window.config = {"leancloud":{"app_id":null,"app_key":null},"toc":true,"fancybox":true,"pjax":"","latex":false};
+</script>
+
+    <title>某C2鸡肋漏洞分析 - Blog</title>
+  <meta name="generator" content="Hexo 5.4.0"></head>
+
+  <body><div id="mobile-navbar" class="mobile-navbar">
+  <div class="mobile-header-logo">
+    <a href="/." class="logo">Blog</a>
+  </div>
+  <div class="mobile-navbar-icon">
+    <span></span>
+    <span></span>
+    <span></span>
+  </div>
+</div>
+
+<nav id="mobile-menu" class="mobile-menu slideout-menu">
+  <ul class="mobile-menu-list"><a href="/">
+        <li class="mobile-menu-item">首页
+          </li>
+      </a><a href="/tags/">
+        <li class="mobile-menu-item">标签
+          </li>
+      </a><a href="/categories/">
+        <li class="mobile-menu-item">分类
+          </li>
+      </a><a href="/about/">
+        <li class="mobile-menu-item">关于
+          </li>
+      </a></ul>
+</nav>
+<div class="container" id="mobile-panel">
+      <header id="header" class="header"><div class="logo-wrapper">
+  <a href="/." class="logo">Blog</a>
+</div>
+
+<nav class="site-navbar"><ul id="menu" class="menu"><li class="menu-item">
+          <a class="menu-item-link" href="/">
+            首页
+            </a>
+        </li>
+      <li class="menu-item">
+          <a class="menu-item-link" href="/tags/">
+            标签
+            </a>
+        </li>
+      <li class="menu-item">
+          <a class="menu-item-link" href="/categories/">
+            分类
+            </a>
+        </li>
+      <li class="menu-item">
+          <a class="menu-item-link" href="/about/">
+            关于
+            </a>
+        </li>
+      </ul></nav>
+</header>
+
+      <main id="main" class="main">
+        <div class="content-wrapper">
+          <div id="content" class="content"><article class="post">
+    <header class="post-header">
+      <h1 class="post-title">某C2鸡肋漏洞分析
+        </h1>
+
+      <div class="post-meta">
+        <span class="post-time">
+          2022-05-12
+        </span><span class="post-category">
+            <a href="/categories/%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD/">基础设施</a>
+            </span>
+        </div>
+    </header>
+
+    <div class="post-toc" id="post-toc">
+    <h2 class="post-toc-title">文章目录</h2>
+    <div class="post-toc-content">
+      <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%B1%B1%E5%AF%A8%E5%A8%81%E8%83%81%E5%BB%BA%E6%A8%A1"><span class="toc-text">山寨威胁建模</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8E%86%E5%8F%B2%E6%BC%8F%E6%B4%9E"><span class="toc-text">历史漏洞</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%99%9A%E5%81%87%E7%9A%84DoS"><span class="toc-text">虚假的DoS</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8F%97%E9%99%90%E8%B7%AF%E5%BE%84%E7%A9%BF%E8%B6%8A"><span class="toc-text">受限路径穿越</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96"><span class="toc-text">反序列化</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%88%A9%E7%94%A8%E6%9D%A1%E4%BB%B6"><span class="toc-text">利用条件</span></a></li></ol>
+    </div>
+  </div><div class="post-content"><p>CobaltStrike是一个知名的红队命令与控制框架，采用<code>Beacon &lt;-&gt; TeamServer &lt;-&gt; Client</code>架构。TeamServer存在受限路径穿越写文件与反序列化漏洞，可以被认证后客户端恶意利用。Client存在反序列化漏洞，可以被RogueCS攻击。</p>
+<p>Author: hosch3n@逐日实验室</p>
+<h2 id="山寨威胁建模"><a href="#山寨威胁建模" class="headerlink" title="山寨威胁建模"></a>山寨威胁建模</h2><p>由于这个软件的特殊性，我们需要想想什么才是漏洞：</p>
+<ol>
+<li><p>直接攻击TeamServer暴露的服务</p>
+</li>
+<li><p>通过Beacon攻击TeamServer</p>
+</li>
+<li><p>通过Client攻击TeamServer</p>
+</li>
+<li><p>通过TeamServer攻击Client</p>
+</li>
+</ol>
+<ul>
+<li>TeamServer控制Beacon是功能，任何所谓TeamServer攻击Beacon的操作都不能算漏洞</li>
+</ul>
+<p>可以看出TeamServer是核心，先从它下手。</p>
+<h2 id="历史漏洞"><a href="#历史漏洞" class="headerlink" title="历史漏洞"></a>历史漏洞</h2><ul>
+<li><a target="_blank" rel="noopener" href="https://research.nccgroup.com/2020/06/15/striking-back-at-retired-cobalt-strike-a-look-at-a-legacy-vulnerability/">in-the-wild</a></li>
+</ul>
+<p>利用TeamServer从Beacon下载文件时，会将Beacon可控数据中的IP字段作为目录的特点，实现路径穿越写计划任务RCE。</p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://www.sentinelone.com/labs/hotcobalt-new-cobalt-strike-dos-vulnerability-that-lets-you-halt-operations/">CVE-2021-36798</a></li>
+</ul>
+<p>利用TeamServer从Beacon加载截图和键盘记录时，会根据Beacon可控数据中的字节大小申请内存的特点，实现内存耗尽DoS。</p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://download.cobaltstrike.com/releasenotes.txt">CVE-2022-23317</a></li>
+</ul>
+<p>猜测是为了兼容<code>proxy</code>的功能（路径为<code>http://</code>开头），没有对URL路径做严谨的校验。动态调试可以看出这会绕过profile相关配置，直接拿到公钥等数据：</p>
+<p><img src="/img/mc2ldfx_a.png"></p>
+<h2 id="虚假的DoS"><a href="#虚假的DoS" class="headerlink" title="虚假的DoS"></a>虚假的DoS</h2><p><code>BeaconC2.process_beacon_data</code>中存在一处利用条件比较苛刻的DoS。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">...</span><br><span class="line"><span class="keyword">int</span> var4 = var3.readInt();</span><br><span class="line">...</span><br><span class="line"><span class="keyword">if</span> (var4 &gt; var3.available()) &#123;</span><br><span class="line">    <span class="keyword">return</span> <span class="keyword">false</span>;</span><br><span class="line">&#125;</span><br><span class="line">...</span><br><span class="line"><span class="keyword">byte</span>[] var5 = <span class="keyword">new</span> <span class="keyword">byte</span>[var4];</span><br></pre></td></tr></table></figure>
+
+<h2 id="受限路径穿越"><a href="#受限路径穿越" class="headerlink" title="受限路径穿越"></a>受限路径穿越</h2><p><img src="/img/mc2ldfx_b.png"></p>
+<p>用来防止路径穿越的核心是<code>CommonUtils.SafeFile</code>方法，判断解析前后的路径是否还以限定前缀开头。这其实可以让我们向上穿越一级并得到前缀开头的文件对象：</p>
+<p><img src="/img/mc2ldfx_c.png"></p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://securitylab.github.com/advisories/GHSL-2022-008_The_OWASP_Enterprise_Security_API/">CVE-2022-23457</a>就是另一个例子</li>
+</ul>
+<p>以<code>ManageUser.process</code>为例，Client可以通过<code>Host File</code>功能上传文件到TeamServer并映射至Web服务，这会先发出一个<code>armitage.upload</code>进行预处理，随后由<code>armitage.append</code>上传文件数据。</p>
+<p><img src="/img/mc2ldfx_d.png"></p>
+<p>这里Client与TeamServer基于序列化通过socket通信，<code>SafeFile</code>的二参<code>var1.arg(0)</code>客户端可控，在<code>UploadFile.result</code>拼接上前缀就可以实现受限路径穿越写文件。<del>然而这并没有什么卵用</del></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">this</span>.conn.call(<span class="string">&quot;armitage.append&quot;</span>, CommonUtils.args(<span class="keyword">this</span>.file.getName()</span><br><span class="line">|</span><br><span class="line">V</span><br><span class="line"><span class="keyword">this</span>.conn.call(<span class="string">&quot;armitage.append&quot;</span>, CommonUtils.args(<span class="string">&quot;../uploads&quot;</span>+<span class="keyword">this</span>.file.getName()</span><br></pre></td></tr></table></figure>
+
+<p><img src="/img/mc2ldfx_e.png"></p>
+<p>想到zip解压释放软链接那种套路，File确实可以透过软链接写入指向文件中，但这里似乎没法实现直接将用于路径穿越的软链接本身存进去。</p>
+<h2 id="反序列化"><a href="#反序列化" class="headerlink" title="反序列化"></a>反序列化</h2><p><img src="/img/mc2ldfx_f.png"></p>
+<p>反序列化核心是<code>TeamSocket.readObject</code>方法，实际使用的<code>ObjectInputStream.readUnshared</code>。它在<code>ManageUser.run</code>中被<code>PostAuthentication.clientAuthenticated</code>通过多线程拉起。</p>
+<p><img src="/img/mc2ldfx_g.png"></p>
+<p><code>client</code>来自<code>SecureServerSocket.acceptAndAuthenticate</code>中接收的客户端数据，预检密码使用<code>readUnsignedByte</code>读入，在密码比对正确时会进入上述反序列化流程。</p>
+<p><img src="/img/mc2ldfx_h.png"></p>
+<p>在客户端<code>Connect.dialogAction</code>发起连接时可以向TeamServer传输序列化对象，如果服务端存在gadgets环境就可被恶意利用。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">this</span>.tqueue.call(<span class="string">&quot;aggressor.authenticate&quot;</span>, CommonUtils.args(var3, var6, Aggressor.VERSION), <span class="keyword">this</span>);</span><br><span class="line">|</span><br><span class="line">V</span><br><span class="line">Object payload = getObject() <span class="comment">// URLDNS, 7u21, ...</span></span><br><span class="line"><span class="keyword">this</span>.tqueue.call(<span class="string">&quot;aggressor.authenticate&quot;</span>, CommonUtils.args(var3, var6, payload), <span class="keyword">this</span>)</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>看代码流程感觉作者是考虑到了的，所以将反序列化放到了认证后</li>
+</ul>
+<p>随后<code>ManageUser.process</code>会将登录成功/失败的消息序列化写回客户端，我们可以把<code>SecureServerSocket.authenticate</code>改为任何密码都校验成功（欺骗客户端通过密码预检），再写回恶意序列化对象（成为RogueCS），如果客户端存在gadgets环境就可被利用。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">...</span><br><span class="line"><span class="keyword">if</span> (!<span class="keyword">this</span>.authenticated &amp;&amp; <span class="string">&quot;aggressor.authenticate&quot;</span>.equals(var1.getCall()) &amp;&amp; var1.size() == <span class="number">3</span>) &#123;</span><br><span class="line">...</span><br><span class="line">    Object payload = getObject() <span class="comment">// URLDNS, 7u21, ...</span></span><br><span class="line">    <span class="keyword">this</span>.client.writeObject(var1.reply(payload))</span><br><span class="line">...</span><br></pre></td></tr></table></figure>
+
+<h2 id="利用条件"><a href="#利用条件" class="headerlink" title="利用条件"></a>利用条件</h2><p>Client攻击TeamServer的话，需要知道服务端的密码（比如通过泄漏/反制得到HOME目录下<code>.aggressor.prop</code>配置文件），而通过TeamServer则可以攻击任何前来连接的Client。</p>
+<p>危害大小取决于运行环境中gadgets的能力，我目前还没在CS内置的lib中找到有实质危害的gadgets。对于原生JRE环境而言，可以通过<code>DeserializationBomb</code>造成CPU型DoS：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">Set&lt;Object&gt; root = <span class="keyword">new</span> HashSet&lt;&gt;();</span><br><span class="line">Set&lt;Object&gt; s1 = root;</span><br><span class="line">Set&lt;Object&gt; s2 = <span class="keyword">new</span> HashSet&lt;&gt;();</span><br><span class="line"><span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; <span class="number">100</span>; i++) &#123;</span><br><span class="line">    Set&lt;Object&gt; t1 = <span class="keyword">new</span> HashSet&lt;&gt;();</span><br><span class="line">    Set&lt;Object&gt; t2 = <span class="keyword">new</span> HashSet&lt;&gt;();</span><br><span class="line">    t1.add(<span class="string">&quot;foo&quot;</span>); <span class="comment">// make it not equal to t2</span></span><br><span class="line">    s1.add(t1);</span><br><span class="line">    s1.add(t2);</span><br><span class="line">    s2.add(t1);</span><br><span class="line">    s2.add(t2);</span><br><span class="line">    s1 = t1;</span><br><span class="line">    s2 = t2;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><img src="/img/mc2ldfx_i.png"></p>
+<p>这个与之前OpenSSL的DoS效果类似，多核环境只会影响单核。相关上下文大都是局部变量，也不太可能通过反序列化造成内存型DoS。所以一般也就能打个DNS自嗨，但如果以前调试漏洞在<code>jre/lib/ext</code>之类的目录引入过危险依赖，或者有大聪明用了7u21就会导致RCE：</p>
+<p><img src="/img/mc2ldfx_j.png"></p>
+<p>CS内置了<code>commons-io</code>、<code>sleep</code>等jar包，找到链也不是完全没有可能，或者找到一种可控方式从当前目录加载类，就能结合受限路径穿越变成RCE。万一山鸡变凤凰了呢（doge</p>
+
+      </div>
+      
+      <footer class="post-footer">
+        <div class="post-tags">
+            <a href="/tags/unserialize/">unserialize</a>
+            <a href="/tags/Traversal/">Traversal</a>
+            <a href="/tags/DoS/">DoS</a>
+            <a href="/tags/CNVD-2022-45437/">CNVD-2022-45437</a>
+            </div>
+        
+        <nav class="post-nav"><a class="prev" href="/2022/08/08/Msmap%E5%86%85%E5%AD%98%E9%A9%AC%E7%94%9F%E6%88%90%E6%A1%86%E6%9E%B6%EF%BC%88%E4%B8%80%EF%BC%89/">
+        <i class="iconfont icon-left"></i>
+        <span class="prev-text nav-default">Msmap内存马生成框架（一）</span>
+        <span class="prev-text nav-mobile">上一篇</span>
+      </a>
+    <a class="next" href="/2022/03/26/SpringCloudFunction%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90/">
+        <span class="next-text nav-default">SpringCloudFunction漏洞分析</span>
+        <span class="prev-text nav-mobile">下一篇</span>
+        <i class="iconfont icon-right"></i>
+      </a>
+    </nav></footer>
+    </article></div><div class="comments" id="comments"></div></div>
+      </main>
+
+      <footer id="footer" class="footer"><div class="social-links"><a href="mailto:hosch3n@protonmail.com" class="iconfont icon-email" title="email"></a>
+        <a target="_blank" rel="noopener" href="https://github.com/hosch3n" class="iconfont icon-github" title="github"></a>
+        <a href="/atom.xml" class="iconfont icon-rss" title="rss"></a>
+    </div><div class="copyright">
+  <span class="power-by">
+    由 <a class="hexo-link" target="_blank" rel="noopener" href="https://hexo.io/">Hexo</a> 强力驱动
+  </span>
+  <span class="division">|</span>
+  <span class="theme-info">
+    主题 - 
+    <a class="theme-link" target="_blank" rel="noopener" href="https://github.com/ahonn/hexo-theme-even">Even</a>
+  </span>
+
+  <span class="copyright-year">&copy;2021 - 2022<span class="heart">
+      <i class="iconfont icon-heart"></i>
+    </span>
+    <span class="author">hosch3n</span>
+  </span>
+</div>
+</footer>
+
+      <div class="back-to-top" id="back-to-top">
+        <i class="iconfont icon-up"></i>
+      </div>
+    </div><script type="text/javascript" src="/lib/jquery/jquery.min.js"></script>
+  <script type="text/javascript" src="/lib/slideout/slideout.js"></script>
+  <script type="text/javascript" src="/lib/fancybox/jquery.fancybox.pack.js"></script>
+  <script type="text/javascript" src="/js/src/even.js?v=2.11.0"></script>
+</body>
+</html>

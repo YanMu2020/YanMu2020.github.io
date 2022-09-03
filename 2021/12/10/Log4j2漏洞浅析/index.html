@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+  <head><meta charset="UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+
+
+<meta http-equiv="Cache-Control" content="no-transform" />
+<meta http-equiv="Cache-Control" content="no-siteapp" />
+
+<meta name="theme-color" content="#f8f5ec" />
+<meta name="msapplication-navbutton-color" content="#f8f5ec">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="#f8f5ec">
+
+<meta name="description" content="Log4j2漏洞浅析"/><meta name="keywords" content="research,analyze" /><link rel="alternate" href="/atom.xml" title="Blog" type="application/atom+xml"><link rel="shortcut icon" type="image/x-icon" href="/favicon.ico?v=2.11.0" />
+<link rel="canonical" href="https://hosch3n.github.io/2021/12/10/Log4j2漏洞浅析/"/>
+
+<link rel="stylesheet" type="text/css" href="/lib/fancybox/jquery.fancybox.css" />
+<link rel="stylesheet" type="text/css" href="/css/style.css?v=2.11.0" />
+
+<!-- Global site tag (gtag.js) - Google Analytics -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-180953397-1"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'UA-180953397-1');
+</script><script id="baidu_push">
+(function(){
+    var bp = document.createElement('script');
+    var curProtocol = window.location.protocol.split(':')[0];
+    if (curProtocol === 'https') {
+        bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+    }
+    else {
+        bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+    }
+    var s = document.getElementsByTagName("script")[0];
+    s.parentNode.insertBefore(bp, s);
+})();
+</script>
+<script>
+  window.config = {"leancloud":{"app_id":null,"app_key":null},"toc":true,"fancybox":true,"pjax":"","latex":false};
+</script>
+
+    <title>Log4j2漏洞浅析 - Blog</title>
+  <meta name="generator" content="Hexo 5.4.0"></head>
+
+  <body><div id="mobile-navbar" class="mobile-navbar">
+  <div class="mobile-header-logo">
+    <a href="/." class="logo">Blog</a>
+  </div>
+  <div class="mobile-navbar-icon">
+    <span></span>
+    <span></span>
+    <span></span>
+  </div>
+</div>
+
+<nav id="mobile-menu" class="mobile-menu slideout-menu">
+  <ul class="mobile-menu-list"><a href="/">
+        <li class="mobile-menu-item">首页
+          </li>
+      </a><a href="/tags/">
+        <li class="mobile-menu-item">标签
+          </li>
+      </a><a href="/categories/">
+        <li class="mobile-menu-item">分类
+          </li>
+      </a><a href="/about/">
+        <li class="mobile-menu-item">关于
+          </li>
+      </a></ul>
+</nav>
+<div class="container" id="mobile-panel">
+      <header id="header" class="header"><div class="logo-wrapper">
+  <a href="/." class="logo">Blog</a>
+</div>
+
+<nav class="site-navbar"><ul id="menu" class="menu"><li class="menu-item">
+          <a class="menu-item-link" href="/">
+            首页
+            </a>
+        </li>
+      <li class="menu-item">
+          <a class="menu-item-link" href="/tags/">
+            标签
+            </a>
+        </li>
+      <li class="menu-item">
+          <a class="menu-item-link" href="/categories/">
+            分类
+            </a>
+        </li>
+      <li class="menu-item">
+          <a class="menu-item-link" href="/about/">
+            关于
+            </a>
+        </li>
+      </ul></nav>
+</header>
+
+      <main id="main" class="main">
+        <div class="content-wrapper">
+          <div id="content" class="content"><article class="post">
+    <header class="post-header">
+      <h1 class="post-title">Log4j2漏洞浅析
+        </h1>
+
+      <div class="post-meta">
+        <span class="post-time">
+          2021-12-10
+        </span><span class="post-category">
+            <a href="/categories/Web%E5%AE%89%E5%85%A8/">Web安全</a>
+            </span>
+        </div>
+    </header>
+
+    <div class="post-toc" id="post-toc">
+    <h2 class="post-toc-title">文章目录</h2>
+    <div class="post-toc-content">
+      <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%89%A7%E8%A1%8C%E6%B5%81%E7%A8%8B"><span class="toc-text">执行流程</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%88%A9%E7%94%A8%E6%B5%81%E7%A8%8B"><span class="toc-text">利用流程</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8F%82%E8%80%83%E9%93%BE%E6%8E%A5"><span class="toc-text">参考链接</span></a></li></ol>
+    </div>
+  </div><div class="post-content"><p>Apache Log4j是一个基于Java的日志框架，已于2015年8月5日停止维护。Log4j2是其重构升级版本，新增的<code>Lookups</code>方法设计用于通过多种途径动态引入外部变量。<code>log4j2版本 &lt; log4j-2.15.0-rc2</code>可由JNDI注入实现远程代码执行。</p>
+<h2 id="执行流程"><a href="#执行流程" class="headerlink" title="执行流程"></a>执行流程</h2><p>当POC作为message传递给<code>Logger</code>类的<code>error</code>、<code>fatal</code>等方法后，略去一些非关键流程，会进入到<code>MessagePatternConverter</code>类<code>format</code>方法对<code>$&#123;</code>内容进行解析替换：</p>
+<p><img src="/img/log4j2_a.png"></p>
+<p>之后进入<code>Interpolator</code>类的<code>lookup</code>方法，由前缀值<code>jndi</code>获取到<code>JndiLookup</code>类：</p>
+<p><img src="/img/log4j2_b.png"></p>
+<p>最终调用对应的<code>lookup</code>方法发起请求，也就是遍地开花的dnslog。。。</p>
+<p><img src="/img/log4j2_c.png"></p>
+<h2 id="利用流程"><a href="#利用流程" class="headerlink" title="利用流程"></a>利用流程</h2><p>JDK版本&lt;8u191，可通过LDAP引入外部JNDI Reference：</p>
+<p><img src="/img/log4j2_d.png"></p>
+<p>JDK版本&gt;=8u191，当存在<code>org.apache.naming.factory.BeanFactory</code>与<code>com.springsource.org.apache.el</code>等依赖时，可在返回的JNDI Reference中指定相应工厂类及setter方法，或是由LDAP引入序列化链实现RCE：</p>
+<p><img src="/img/log4j2_e.png"></p>
+<p>同时可以结合一些其它<code>StrLookup</code>适当变形，以及配合官方测试用例中脏数据<code>&quot;?Type=A Type&amp;Name=1100110&amp;Char=!&quot;</code>绕过rc1。</p>
+<p><img src="/img/log4j2_g.png"></p>
+<p>RC2版本对此异常进行了捕获。。。</p>
+<h2 id="参考链接"><a href="#参考链接" class="headerlink" title="参考链接"></a>参考链接</h2><p><a target="_blank" rel="noopener" href="https://www.docs4dev.com/docs/en/log4j2/2.x/all/manual-lookups.html">Log4j2 Manual Lookups</a></p>
+<p><a target="_blank" rel="noopener" href="https://github.com/apache/logging-log4j2/commit/d82b47c6fae9c15fcb183170394d5f1a01ac02d3">LOG4J2-3201 - Limit the protocols JNDI can use by default</a></p>
+
+      </div>
+      
+      <footer class="post-footer">
+        <div class="post-tags">
+            <a href="/tags/JNDI/">JNDI</a>
+            <a href="/tags/log4j/">log4j</a>
+            <a href="/tags/CVE-2021-44228/">CVE-2021-44228</a>
+            </div>
+        
+        <nav class="post-nav"><a class="prev" href="/2022/02/15/%E6%94%BB%E5%87%BBJavaRMI%E6%A6%82%E8%BF%B0/">
+        <i class="iconfont icon-left"></i>
+        <span class="prev-text nav-default">攻击JavaRMI概述</span>
+        <span class="prev-text nav-mobile">上一篇</span>
+      </a>
+    <a class="next" href="/2021/11/10/%E5%8E%BB%E4%B8%AD%E5%BF%83%E5%8C%96%E4%B8%8A%E7%BA%BFCS/">
+        <span class="next-text nav-default">去中心化上线CS</span>
+        <span class="prev-text nav-mobile">下一篇</span>
+        <i class="iconfont icon-right"></i>
+      </a>
+    </nav></footer>
+    </article></div><div class="comments" id="comments"></div></div>
+      </main>
+
+      <footer id="footer" class="footer"><div class="social-links"><a href="mailto:hosch3n@protonmail.com" class="iconfont icon-email" title="email"></a>
+        <a target="_blank" rel="noopener" href="https://github.com/hosch3n" class="iconfont icon-github" title="github"></a>
+        <a href="/atom.xml" class="iconfont icon-rss" title="rss"></a>
+    </div><div class="copyright">
+  <span class="power-by">
+    由 <a class="hexo-link" target="_blank" rel="noopener" href="https://hexo.io/">Hexo</a> 强力驱动
+  </span>
+  <span class="division">|</span>
+  <span class="theme-info">
+    主题 - 
+    <a class="theme-link" target="_blank" rel="noopener" href="https://github.com/ahonn/hexo-theme-even">Even</a>
+  </span>
+
+  <span class="copyright-year">&copy;2021 - 2022<span class="heart">
+      <i class="iconfont icon-heart"></i>
+    </span>
+    <span class="author">hosch3n</span>
+  </span>
+</div>
+</footer>
+
+      <div class="back-to-top" id="back-to-top">
+        <i class="iconfont icon-up"></i>
+      </div>
+    </div><script type="text/javascript" src="/lib/jquery/jquery.min.js"></script>
+  <script type="text/javascript" src="/lib/slideout/slideout.js"></script>
+  <script type="text/javascript" src="/lib/fancybox/jquery.fancybox.pack.js"></script>
+  <script type="text/javascript" src="/js/src/even.js?v=2.11.0"></script>
+</body>
+</html>

