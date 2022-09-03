@@ -2,7 +2,7 @@
 layout: post
 title: "Burp技巧DOM Invader使用"
 date:   2022-09-03
-tags: [geek]
+tags: [BurpSuite]
 comments: true
 author: yanmu
 ---
