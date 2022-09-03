@@ -1,489 +1,104 @@
-<!DOCTYPE html>
-<html lang="zh-cn">
-  <head><meta charset="UTF-8"/>
-<meta http-equiv="X-UA-Compatible" content="IE=edge" />
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
-
-
-<meta http-equiv="Cache-Control" content="no-transform" />
-<meta http-equiv="Cache-Control" content="no-siteapp" />
-
-<meta name="theme-color" content="#f8f5ec" />
-<meta name="msapplication-navbutton-color" content="#f8f5ec">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="#f8f5ec">
-
-<meta name="keywords" content="research,analyze" /><link rel="alternate" href="/atom.xml" title="Blog" type="application/atom+xml"><link rel="shortcut icon" type="image/x-icon" href="/favicon.ico?v=2.11.0" />
-<link rel="canonical" href="https://hosch3n.github.io/"/>
-
-<link rel="stylesheet" type="text/css" href="/lib/fancybox/jquery.fancybox.css" />
-<link rel="stylesheet" type="text/css" href="/css/style.css?v=2.11.0" />
-
-<!-- Global site tag (gtag.js) - Google Analytics -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=UA-180953397-1"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-
-  gtag('config', 'UA-180953397-1');
-</script><script id="baidu_push">
-(function(){
-    var bp = document.createElement('script');
-    var curProtocol = window.location.protocol.split(':')[0];
-    if (curProtocol === 'https') {
-        bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
-    }
-    else {
-        bp.src = 'http://push.zhanzhang.baidu.com/push.js';
-    }
-    var s = document.getElementsByTagName("script")[0];
-    s.parentNode.insertBefore(bp, s);
-})();
-</script>
-<script>
-  window.config = {"leancloud":{"app_id":null,"app_key":null},"toc":true,"fancybox":true,"pjax":"","latex":false};
-</script>
-
-    <title>Blog</title>
-  <meta name="generator" content="Hexo 5.4.0"></head>
-
-  <body><div id="mobile-navbar" class="mobile-navbar">
-  <div class="mobile-header-logo">
-    <a href="/." class="logo">Blog</a>
-  </div>
-  <div class="mobile-navbar-icon">
-    <span></span>
-    <span></span>
-    <span></span>
-  </div>
+---
+layout: default
+---
+<div class="search-container">
+  <input type="text" id="search-input" placeholder="search blog posts..." style="width: 90%;
+    height: 35px;
+    color: #333;
+    background-color: rgba(227,231,236,.2);
+    line-height: 35px;
+    padding:0px 16px;
+    border: 1px solid #c0c0c0;
+    font-size: 16px;
+    font-weight: bold;
+    border-radius: 17px;
+    outline: none;
+    box-sizing: border-box;
+    box-shadow: inset 0 1px 1px rgba(0,0,0,.075), 0 0 8px rgba(102,175,233,.6);">
+  <ul id="results-container"></ul>
 </div>
 
-<nav id="mobile-menu" class="mobile-menu slideout-menu">
-  <ul class="mobile-menu-list"><a href="/">
-        <li class="mobile-menu-item">首页
+<!--script src="https://unpkg.com/simple-jekyll-search/dest/simple-jekyll-search.min.js"></script-->
+<script src="{{ site.baseurl }}/js/simple-jekyll-search.min.js"></script>
+
+<script>
+	window.simpleJekyllSearch = new SimpleJekyllSearch({
+	searchInput: document.getElementById('search-input'),
+	resultsContainer: document.getElementById('results-container'),
+	json: '{{ site.baseurl }}/search.json',
+	searchResultTemplate: '<li><a href="{url}?query={query}" title="{desc}">{title}</a></li>',
+	noResultsText: 'No results found',
+	limit: 10,
+	fuzzy: false,
+	exclude: ['Welcome']
+  })
+</script>
+ 
+{% if site.posts.size == 0 %}
+  <h2>No post found</h2>
+{% endif %}
+
+<div class="posts">
+  {% for post in paginator.posts %}
+  {% unless post.draft %}
+    <article class="post">
+      <h1>
+        <a href="{{ site.baseurl }}{{ post.url }}">{{ post.title }}</a>
+      </h1>
+
+      <div clsss="meta">
+        <span class="date">
+          {{ post.date | date: "%Y-%m-%d" }}
+        </span>
+
+        <ul class="tag">
+          {% for tag in post.tags %}
+          <li>
+            <a href="{{ site.url }}{{ site.baseurl }}/tags#{{ tag }}">
+              {{ tag }}
+            </a>
           </li>
-      </a><a href="/tags/">
-        <li class="mobile-menu-item">标签
-          </li>
-      </a><a href="/categories/">
-        <li class="mobile-menu-item">分类
-          </li>
-      </a><a href="/about/">
-        <li class="mobile-menu-item">关于
-          </li>
-      </a></ul>
-</nav>
-<div class="container" id="mobile-panel">
-      <header id="header" class="header"><div class="logo-wrapper">
-  <a href="/." class="logo">Blog</a>
+          {% endfor %}
+        </ul>
+      </div>
+
+      <div class="entry">
+        {{ post.excerpt | truncate: 200 }}
+      </div>
+
+      <a href="{{ site.baseurl }}{{ post.url }}" class="read-more">Read More</a>
+    </article>
+  {% endunless %}
+  {% endfor %}
 </div>
 
-<nav class="site-navbar"><ul id="menu" class="menu"><li class="menu-item">
-          <a class="menu-item-link" href="/">
-            首页
-            </a>
-        </li>
-      <li class="menu-item">
-          <a class="menu-item-link" href="/tags/">
-            标签
-            </a>
-        </li>
-      <li class="menu-item">
-          <a class="menu-item-link" href="/categories/">
-            分类
-            </a>
-        </li>
-      <li class="menu-item">
-          <a class="menu-item-link" href="/about/">
-            关于
-            </a>
-        </li>
-      </ul></nav>
-</header>
-
-      <main id="main" class="main">
-        <div class="content-wrapper">
-          <div id="content" class="content"><section id="posts" class="posts"><section id="archive" class="archive"><div class="collection-title">
-            <h2 class="archive-year">2022</h2>
-          </div>
-        <div class="archive-post">
-        <span class="archive-post-time">
-          09-01
-          </span>
-        <span class="archive-post-title">
-          <a href="/2022/09/01/Fastjson1-2-80%E6%BC%8F%E6%B4%9E%E5%A4%8D%E7%8E%B0/" class="archive-post-link">
-            Fastjson1.2.80漏洞复现
-          </a>
-        </span>
-      </div>
-    <div class="archive-post">
-        <span class="archive-post-time">
-          08-09
-          </span>
-        <span class="archive-post-title">
-          <a href="/2022/08/09/Msmap%E5%86%85%E5%AD%98%E9%A9%AC%E7%94%9F%E6%88%90%E6%A1%86%E6%9E%B6%EF%BC%88%E4%BA%8C%EF%BC%89/" class="archive-post-link">
-            Msmap内存马生成框架（二）
-          </a>
-        </span>
-      </div>
-    <div class="archive-post">
-        <span class="archive-post-time">
-          08-08
-          </span>
-        <span class="archive-post-title">
-          <a href="/2022/08/08/Msmap%E5%86%85%E5%AD%98%E9%A9%AC%E7%94%9F%E6%88%90%E6%A1%86%E6%9E%B6%EF%BC%88%E4%B8%80%EF%BC%89/" class="archive-post-link">
-            Msmap内存马生成框架（一）
-          </a>
-        </span>
-      </div>
-    <div class="archive-post">
-        <span class="archive-post-time">
-          05-12
-          </span>
-        <span class="archive-post-title">
-          <a href="/2022/05/12/%E6%9F%90C2%E9%B8%A1%E8%82%8B%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90/" class="archive-post-link">
-            某C2鸡肋漏洞分析
-          </a>
-        </span>
-      </div>
-    <div class="archive-post">
-        <span class="archive-post-time">
-          03-26
-          </span>
-        <span class="archive-post-title">
-          <a href="/2022/03/26/SpringCloudFunction%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90/" class="archive-post-link">
-            SpringCloudFunction漏洞分析
-          </a>
-        </span>
-      </div>
-    <div class="archive-post">
-        <span class="archive-post-time">
-          03-24
-          </span>
-        <span class="archive-post-title">
-          <a href="/2022/03/24/Fastjson-autoType%E6%BC%8F%E6%B4%9E%E6%80%BB%E7%BB%93/" class="archive-post-link">
-            Fastjson-autoType漏洞总结
-          </a>
-        </span>
-      </div>
-    <div class="archive-post">
-        <span class="archive-post-time">
-          02-15
-          </span>
-        <span class="archive-post-title">
-          <a href="/2022/02/15/%E6%94%BB%E5%87%BBJavaRMI%E6%A6%82%E8%BF%B0/" class="archive-post-link">
-            攻击JavaRMI概述
-          </a>
-        </span>
-      </div>
-    <div class="collection-title">
-            <h2 class="archive-year">2021</h2>
-          </div>
-        <div class="archive-post">
-        <span class="archive-post-time">
-          12-10
-          </span>
-        <span class="archive-post-title">
-          <a href="/2021/12/10/Log4j2%E6%BC%8F%E6%B4%9E%E6%B5%85%E6%9E%90/" class="archive-post-link">
-            Log4j2漏洞浅析
-          </a>
-        </span>
-      </div>
-    <div class="archive-post">
-        <span class="archive-post-time">
-          11-10
-          </span>
-        <span class="archive-post-title">
-          <a href="/2021/11/10/%E5%8E%BB%E4%B8%AD%E5%BF%83%E5%8C%96%E4%B8%8A%E7%BA%BFCS/" class="archive-post-link">
-            去中心化上线CS
-          </a>
-        </span>
-      </div>
-    <div class="archive-post">
-        <span class="archive-post-time">
-          11-02
-          </span>
-        <span class="archive-post-title">
-          <a href="/2021/11/02/Artifact%E9%9B%86%E6%88%90Syscall%E4%B8%8EDetours/" class="archive-post-link">
-            Artifact集成Syscall与Detours
-          </a>
-        </span>
-      </div>
-    <div class="archive-post">
-        <span class="archive-post-time">
-          10-08
-          </span>
-        <span class="archive-post-title">
-          <a href="/2021/10/08/VMware-vCenter%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90%EF%BC%88%E4%BA%8C%EF%BC%89/" class="archive-post-link">
-            VMware vCenter漏洞分析（二）
-          </a>
-        </span>
-      </div>
-    <div class="archive-post">
-        <span class="archive-post-time">
-          08-24
-          </span>
-        <span class="archive-post-title">
-          <a href="/2021/08/24/ProxyShell%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90/" class="archive-post-link">
-            ProxyShell漏洞分析
-          </a>
-        </span>
-      </div>
-    <div class="archive-post">
-        <span class="archive-post-time">
-          08-23
-          </span>
-        <span class="archive-post-title">
-          <a href="/2021/08/23/ProxyOracle%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90/" class="archive-post-link">
-            ProxyOracle漏洞分析
-          </a>
-        </span>
-      </div>
-    <div class="archive-post">
-        <span class="archive-post-time">
-          08-22
-          </span>
-        <span class="archive-post-title">
-          <a href="/2021/08/22/ProxyLogon%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90/" class="archive-post-link">
-            ProxyLogon漏洞分析
-          </a>
-        </span>
-      </div>
-    <div class="archive-post">
-        <span class="archive-post-time">
-          08-10
-          </span>
-        <span class="archive-post-title">
-          <a href="/2021/08/10/PaddingOracle%E6%94%BB%E5%87%BB%E5%8E%9F%E7%90%86/" class="archive-post-link">
-            PaddingOracle攻击原理
-          </a>
-        </span>
-      </div>
-    <div class="archive-post">
-        <span class="archive-post-time">
-          08-06
-          </span>
-        <span class="archive-post-title">
-          <a href="/2021/08/06/%E5%85%B3%E4%BA%8E%E4%BF%AE%E5%A4%8DHotcobalt%E7%9A%84%E4%B8%80%E4%BA%9B%E5%B0%8F%E6%83%B3%E6%B3%95/" class="archive-post-link">
-            关于修复Hotcobalt的一些小想法
-          </a>
-        </span>
-      </div>
-    <div class="archive-post">
-        <span class="archive-post-time">
-          07-06
-          </span>
-        <span class="archive-post-title">
-          <a href="/2021/07/06/VMware-vCenter%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90%EF%BC%88%E4%B8%80%EF%BC%89/" class="archive-post-link">
-            VMware vCenter漏洞分析（一）
-          </a>
-        </span>
-      </div>
-    <div class="archive-post">
-        <span class="archive-post-time">
-          06-29
-          </span>
-        <span class="archive-post-title">
-          <a href="/2021/06/29/%E5%88%A9%E7%94%A8dll%E5%8A%AB%E6%8C%81%E5%AE%9E%E7%8E%B0%E5%85%8D%E6%9D%80%E4%B8%8E%E7%BB%B4%E6%9D%83/" class="archive-post-link">
-            利用dll劫持实现免杀与维权
-          </a>
-        </span>
-      </div>
-    <div class="archive-post">
-        <span class="archive-post-time">
-          05-29
-          </span>
-        <span class="archive-post-title">
-          <a href="/2021/05/29/CS%E7%A0%B4%E8%A7%A3%E4%B8%8E%E4%BA%8C%E6%AC%A1%E5%BC%80%E5%8F%91/" class="archive-post-link">
-            CS破解与二次开发
-          </a>
-        </span>
-      </div>
-    <div class="archive-post">
-        <span class="archive-post-time">
-          03-10
-          </span>
-        <span class="archive-post-title">
-          <a href="/2021/03/10/Windows%E5%87%AD%E6%8D%AE%E7%AA%83%E5%8F%96%EF%BC%88%E4%B8%80%EF%BC%89/" class="archive-post-link">
-            Windows凭据窃取（一）
-          </a>
-        </span>
-      </div>
-    <div class="collection-title">
-            <h2 class="archive-year">2020</h2>
-          </div>
-        <div class="archive-post">
-        <span class="archive-post-time">
-          12-16
-          </span>
-        <span class="archive-post-title">
-          <a href="/2020/12/16/%E6%A3%80%E6%B5%8B%E4%B8%8E%E9%9A%90%E8%97%8FCobaltstrike%E6%9C%8D%E5%8A%A1%E5%99%A8/" class="archive-post-link">
-            检测与隐藏Cobaltstrike服务器
-          </a>
-        </span>
-      </div>
-    <div class="archive-post">
-        <span class="archive-post-time">
-          11-05
-          </span>
-        <span class="archive-post-title">
-          <a href="/2020/11/05/TP5%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90%E4%BB%A3%E7%A0%81%E6%89%A7%E8%A1%8C%E7%AF%87/" class="archive-post-link">
-            TP5漏洞分析代码执行篇
-          </a>
-        </span>
-      </div>
-    <div class="archive-post">
-        <span class="archive-post-time">
-          10-21
-          </span>
-        <span class="archive-post-title">
-          <a href="/2020/10/21/TP5%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90SQL%E6%B3%A8%E5%85%A5%E7%AF%87/" class="archive-post-link">
-            TP5漏洞分析SQL注入篇
-          </a>
-        </span>
-      </div>
-    <div class="archive-post">
-        <span class="archive-post-time">
-          09-25
-          </span>
-        <span class="archive-post-title">
-          <a href="/2020/09/25/SSRF%E6%89%93Redis%E8%A7%84%E9%81%BF%E5%9D%8F%E5%AD%97%E7%AC%A6/" class="archive-post-link">
-            SSRF打Redis规避坏字符
-          </a>
-        </span>
-      </div>
-    <div class="archive-post">
-        <span class="archive-post-time">
-          09-04
-          </span>
-        <span class="archive-post-title">
-          <a href="/2020/09/04/PHP%E6%96%87%E4%BB%B6%E5%8C%85%E5%90%AB%E4%B8%8E%E6%9D%A1%E4%BB%B6%E7%AB%9E%E4%BA%89/" class="archive-post-link">
-            PHP文件包含与条件竞争
-          </a>
-        </span>
-      </div>
-    <div class="archive-post">
-        <span class="archive-post-time">
-          08-27
-          </span>
-        <span class="archive-post-title">
-          <a href="/2020/08/27/Python%E6%B2%99%E7%AE%B1%E9%80%83%E9%80%B8/" class="archive-post-link">
-            Python沙箱逃逸
-          </a>
-        </span>
-      </div>
-    <div class="archive-post">
-        <span class="archive-post-time">
-          08-26
-          </span>
-        <span class="archive-post-title">
-          <a href="/2020/08/26/%E5%90%8C%E6%BA%90%E7%AD%96%E7%95%A5%E4%B8%8E%E8%B7%A8%E5%9F%9F%E6%BC%8F%E6%B4%9E/" class="archive-post-link">
-            同源策略与跨域漏洞
-          </a>
-        </span>
-      </div>
-    <div class="archive-post">
-        <span class="archive-post-time">
-          08-19
-          </span>
-        <span class="archive-post-title">
-          <a href="/2020/08/19/Phar%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96/" class="archive-post-link">
-            Phar反序列化
-          </a>
-        </span>
-      </div>
-    <div class="archive-post">
-        <span class="archive-post-time">
-          08-16
-          </span>
-        <span class="archive-post-title">
-          <a href="/2020/08/16/HTTP%E8%AF%B7%E6%B1%82%E8%B5%B0%E7%A7%81/" class="archive-post-link">
-            HTTP请求走私
-          </a>
-        </span>
-      </div>
-    <div class="archive-post">
-        <span class="archive-post-time">
-          08-16
-          </span>
-        <span class="archive-post-title">
-          <a href="/2020/08/16/XML%E5%9F%BA%E7%A1%80%E4%B8%8EXXE%E6%B3%A8%E5%85%A5/" class="archive-post-link">
-            XML基础与XXE注入
-          </a>
-        </span>
-      </div>
-    <div class="archive-post">
-        <span class="archive-post-time">
-          08-16
-          </span>
-        <span class="archive-post-title">
-          <a href="/2020/08/16/%E5%BB%BA%E7%AB%8BWebSocket%E8%BF%9E%E6%8E%A5/" class="archive-post-link">
-            建立WebSocket连接
-          </a>
-        </span>
-      </div>
-    <div class="archive-post">
-        <span class="archive-post-time">
-          08-16
-          </span>
-        <span class="archive-post-title">
-          <a href="/2020/08/16/Linux%E5%91%BD%E4%BB%A4Bypass%E8%BF%87%E6%BB%A4/" class="archive-post-link">
-            Linux命令Bypass过滤
-          </a>
-        </span>
-      </div>
-    <div class="archive-post">
-        <span class="archive-post-time">
-          08-16
-          </span>
-        <span class="archive-post-title">
-          <a href="/2020/08/16/PHP%E5%93%88%E5%B8%8C%E5%87%BD%E6%95%B0%E7%89%B9%E6%80%A7/" class="archive-post-link">
-            PHP哈希函数特性
-          </a>
-        </span>
-      </div>
-    <div class="archive-post">
-        <span class="archive-post-time">
-          08-16
-          </span>
-        <span class="archive-post-title">
-          <a href="/2020/08/16/hello-world/" class="archive-post-link">
-            Hello World
-          </a>
-        </span>
-      </div>
-    </section><nav class="pagination"></nav>
-    </section></div></div>
-      </main>
-
-      <footer id="footer" class="footer"><div class="social-links"><a href="mailto:hosch3n@protonmail.com" class="iconfont icon-email" title="email"></a>
-        <a target="_blank" rel="noopener" href="https://github.com/hosch3n" class="iconfont icon-github" title="github"></a>
-        <a href="/atom.xml" class="iconfont icon-rss" title="rss"></a>
-    </div><div class="copyright">
-  <span class="power-by">
-    由 <a class="hexo-link" target="_blank" rel="noopener" href="https://hexo.io/">Hexo</a> 强力驱动
-  </span>
-  <span class="division">|</span>
-  <span class="theme-info">
-    主题 - 
-    <a class="theme-link" target="_blank" rel="noopener" href="https://github.com/ahonn/hexo-theme-even">Even</a>
-  </span>
-
-  <span class="copyright-year">&copy;2021 - 2022<span class="heart">
-      <i class="iconfont icon-heart"></i>
+<div class="pagination">
+  {% if paginator.previous_page %}
+    <span class="prev">
+      <a href="{{ site.baseurl }}{{ paginator.previous_page_path }}" class="prev">
+        ← 上一页
+      </a>
     </span>
-    <span class="author">hosch3n</span>
-  </span>
+  {% endif %}
+  {% if paginator.next_page %}
+    <span class="next">
+      <a href="{{ site.baseurl}}{{ paginator.next_page_path }}" class="next">
+        下一页 →
+      </a>
+    </span>
+  {% endif %}
 </div>
-</footer>
 
-      <div class="back-to-top" id="back-to-top">
-        <i class="iconfont icon-up"></i>
-      </div>
-    </div><script type="text/javascript" src="/lib/jquery/jquery.min.js"></script>
-  <script type="text/javascript" src="/lib/slideout/slideout.js"></script>
-  <script type="text/javascript" src="/lib/fancybox/jquery.fancybox.pack.js"></script>
-  <script type="text/javascript" src="/js/src/even.js?v=2.11.0"></script>
-</body>
-</html>
+<!--不算子网站访客统计-->
+<script async src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js">
+</script>
+<!-- pv的方式，单个用户连续点击n篇文章，记录n次访问量 -->
+<div align="center">
+	<span id="busuanzi_container_site_pv" style="font-family:Consolas;color:Silver;font-size:12px;">
+		View:<span id="busuanzi_value_site_pv" style="font-family:Consolas;color:Silver;font-size:12px;"></span>
+	</span>
+	<!-- uv的方式，单个用户连续点击n篇文章，只记录1次访客数 -->
+	<span id="busuanzi_container_site_uv" style="font-family:Consolas;color:Silver;font-size:12px;">
+		User:<span id="busuanzi_value_site_uv" style="font-family:Consolas;color:Silver;font-size:12px;"></span>
+	</span>
+</div>
